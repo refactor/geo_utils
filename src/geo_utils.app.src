@@ -1,0 +1,15 @@
+{application, geo_utils,
+ [
+  {description, "Geospatial Utilities"},
+  {vsn, "0.1"},
+  {modules, [
+             math_utils,
+             mercator_tiles
+            ]},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
