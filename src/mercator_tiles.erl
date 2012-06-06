@@ -109,16 +109,21 @@
 %% ------------------------------------------------------------------------------------------------
 -module(mercator_tiles).
 
--export([latlon_to_meters/2, 
-         meters_to_latlon/2, 
+-export([
          meters_to_tile/3, 
+         meters_to_latlon/2, 
          tile_enclosure/3, 
-         tile_latlon_bounds/3, 
-         zoom_for_pixelsize/1]).
+         zoom_for_pixelsize/1,
+         parent_quadtree/3, 
+         geo_query/3
+        ]).
 
--export([resolution/1]).
--export([parent_quadtree/3, quadtree/3]).
--export([geo_query/3]).
+-export([
+%         latlon_to_meters/2, 
+%         tile_latlon_bounds/3,
+%         resolution/1,
+%         quadtree/3
+        ]).
 
 -include("mercator_tiles.hrl").
 
