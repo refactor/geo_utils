@@ -37,6 +37,7 @@ xy_assert({X1, Y1}, {X2, Y2}) ->
     ?assert(abs(Y1 - Y2) < ?PRECISION).
 
 swne_assert({S1, W1, N1, E1}, {S2, W2, N2, E2}) ->
+    io:format("{S2: ~p, W2: ~p, N2: ~p, E2: ~p}", [S2, W2, N2, E2]),
     ?assert(abs(S1 - S2) < ?PRECISION),
     ?assert(abs(W1 - W2) < ?PRECISION),
     ?assert(abs(N1 - N2) < ?PRECISION),
