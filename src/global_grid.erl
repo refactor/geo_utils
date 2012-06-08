@@ -13,7 +13,8 @@ behaviour_info(callbacks) ->
     [{init_world_state, 0},
      {tile_bounds, 3},
      {zoom_for_pixelsize, 1},
-     {resolution, 1}];
+     {resolution, 1},
+     {epsg_code, 0}];
 behaviour_info(_Other) ->
     undefined.
 

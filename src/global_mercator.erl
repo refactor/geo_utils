@@ -1,8 +1,10 @@
+%% @doc base on EPSG:3785 ( = EPSG:900913)
+%%
 -module(global_mercator).
 -behaviour(global_grid).
 -include("global_grid.hrl").
 
--export([init_world_state/0, tile_bounds/3, zoom_for_pixelsize/1, resolution/1]).
+-export([init_world_state/0, tile_bounds/3, zoom_for_pixelsize/1, resolution/1, epsg_code/0]).
 
 %-define(EARTH_RADIUS, 6378137).
 %-define(PI, math:pi()).
@@ -46,6 +48,10 @@ zoom_for_pixelsize(PixelSize) ->
 resolution(Zoom) ->
     ?INITIAL_RESOLUTION / math:pow(2, Zoom).
 
+%% @doc EPSG:3785
+-spec epsg_code() -> non_neg_integer().
+epsg_code() ->
+    3785.
 
 %% ===================================================================
 %% private functions

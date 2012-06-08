@@ -1,8 +1,10 @@
+%% @doc base on EPSG:4326
+%%
 -module(global_geodetic).
 -behaviour(global_grid).
 -include("global_grid.hrl").
 
--export([init_world_state/0, tile_bounds/3, zoom_for_pixelsize/1, resolution/1]).
+-export([init_world_state/0, tile_bounds/3, zoom_for_pixelsize/1, resolution/1, epsg_code/0]).
 
 
 -ifdef(TEST).
@@ -35,6 +37,11 @@ zoom_for_pixelsize(PixelSize) ->
 -spec resolution(Zoom::byte()) -> float().
 resolution(Zoom) ->
     180.0 / ?TILE_SIZE / math:pow(2, Zoom).
+
+%% @doc EPSG:4326
+-spec epsg_code() -> non_neg_integer().
+epsg_code() ->
+    4326.
 
 
 %% ===================================================================
