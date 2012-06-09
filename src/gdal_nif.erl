@@ -6,7 +6,8 @@
          close_img/1]).
 
 -export([copyout_tile/3,
-         build_tile/1]).
+         build_tile/1,
+         save_tile/2]).
 
 -on_load(init/0).
 
@@ -53,6 +54,11 @@ copyout_tile(_Img, _R, _W) ->
 -spec build_tile(Tile::reference()) -> ok | {error, string()}.
 build_tile(_Tile) ->
     ?nif_stub.
+
+-spec save_tile(Tile::reference(), TileFileName::string()) -> ok | {error, string()}.
+save_tile(_Tile, _TileFileName) ->
+    ?nif_stub.
+
 
 %% ===================================================================
 %% EUnit tests

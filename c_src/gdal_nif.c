@@ -64,6 +64,7 @@ static ERL_NIF_TERM gdal_nif_create_warped_vrt(ErlNifEnv* env, int argc,
 static ERL_NIF_TERM gdal_nif_close_img(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_copyout_tile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_build_tile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM gdal_nif_save_tile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_get_meta(ErlNifEnv* env, int argc,
                                       const ERL_NIF_TERM argv[]);
 
@@ -81,6 +82,7 @@ static ErlNifFunc nif_funcs[] =
     {"close_img", 1, gdal_nif_close_img},
     {"copyout_tile", 3, gdal_nif_copyout_tile},
     {"build_tile", 1, gdal_nif_build_tile},
+    {"save_tile", 2, gdal_nif_save_tile},
     {"get_meta", 1, gdal_nif_get_meta}
 };
 
@@ -356,6 +358,29 @@ static ERL_NIF_TERM gdal_nif_build_tile(ErlNifEnv* env, int argc, const ERL_NIF_
     }
 
     free_temp_data(hTile);
+
+    return ATOM_OK;
+}
+
+static ERL_NIF_TERM gdal_nif_save_tile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    gdal_tile_handle* ti;
+    if (!enif_get_resource(env, argv[0], gdal_tile_RESOURCE, (void**)&ti)) {
+        return enif_make_badarg(env);
+    }
+    
+    char tilefilename[256] = "";
+    if (enif_get_string(env, argv[1], tilefilename, 256, ERL_NIF_LATIN1) <= 0) {
+        return enif_make_badarg(env);
+    }
+
+    GDALDriverH hOutDriver = GDALGetDriverByName("PNG");
+    if ( ! ti->options_resampling || (strcmp("antialias", ti->options_resampling) != 0) ) {
+        GDALDatasetH tileDataset = GDALCreateCopy(hOutDriver,
+                                                  tilefilename, ti->dstile, 
+                                                  FALSE, NULL, NULL, NULL);
+        GDALClose(tileDataset);
+    }
 
     return ATOM_OK;
 }
