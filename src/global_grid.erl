@@ -1,8 +1,18 @@
 -module(global_grid).
+-behaviour(gen_fsm).
 
 -include("global_grid.hrl").
 
 -export([behaviour_info/1]).
+
+-export([init/1, 
+         copying/2, 
+         listening/2, 
+         handle_event/3, 
+         handle_sync_event/4, 
+         handle_info/3, 
+         terminate/3, 
+         code_change/4]).
 
 -export([zoom_for_pixelsize/3]).
 
@@ -32,6 +42,31 @@ behaviour_info(_Other) ->
 
 %% {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize},
 -type rasterinfo() :: {float(), float(), float(), float(), non_neg_integer(), non_neg_integer()}.
+
+
+init({ProjectionMod, DatasetFileName}) ->
+    {ok, copying, #w_state{global_projection=ProjectionMod}}.
+
+copying(Event, State) ->
+    {next_stage, copying, State}.
+
+listening(Event, State) ->
+    {next_stage, listening, State}.
+
+handle_event(Event, StateName, StateData) ->
+    {next_stage, copying, StateData}.
+    
+handle_sync_event(Event, From, StateName, StateData) ->
+    {next_stage, copying, StateData}.
+
+ handle_info(Info, StateName, StateData) ->
+    {next_stage, copying, StateData}.
+
+ terminate(Reason, StateName, StateData) ->
+    ok.
+
+ code_change(_OldVsn, State, Data, _Extra) ->
+    {ok, State, Data}.
 
 
 %% @doc For given dataset and query in cartographic coordinates returns parameters for ReadRaster() in 

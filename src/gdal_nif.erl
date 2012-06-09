@@ -1,7 +1,12 @@
 -module(gdal_nif).
 
 -export([build_out_ds_srs_wkt/1,
-         myfunction/1]).
+         get_meta/1,
+         create_warped_vrt/2,
+         close_img/1]).
+
+-export([copyout_tile/3,
+         build_tile/1]).
 
 -on_load(init/0).
 
@@ -28,7 +33,25 @@ init() ->
 build_out_ds_srs_wkt(_EpsgCode) ->
     ?nif_stub.
 
-myfunction(_Ref) ->
+%% @doc build out_ds in global world of EPSP:Code projection
+-spec create_warped_vrt(ImgFileName::string(), VrtEpsgCode::non_neg_integer()) -> {ok, reference()} | {error, string()}.
+create_warped_vrt(_ImgFileName, _VrtEpsgCode) ->
+    ?nif_stub.
+
+-spec close_img(Img::reference()) -> ok | {error, string()}.
+close_img(_Img) ->
+    ?nif_stub.
+
+-spec get_meta(Img::reference()) -> any().
+get_meta(_ImgRef) ->
+    ?nif_stub.
+
+-spec copyout_tile(reference(), global_grid:bandregion(), global_grid:bandregion()) -> {ok, reference()} | {error, string()}.
+copyout_tile(_Img, _R, _W) ->
+    ?nif_stub.
+
+-spec build_tile(Tile::reference()) -> ok | {error, string()}.
+build_tile(_Tile) ->
     ?nif_stub.
 
 %% ===================================================================
