@@ -9,6 +9,8 @@
 
 #include "gdal_nif_util.h"
 
+#include <stdbool.h>
+
 static ErlNifResourceType* gdal_img_RESOURCE = NULL;
 static ErlNifResourceType* gdal_tile_RESOURCE = NULL;
 
@@ -73,6 +75,7 @@ static void destroy_img_handle(gdal_img_handle* handle);
 static void gdal_nif_img_resource_cleanup(ErlNifEnv* env, void* arg);
 static void gdal_nif_tile_resource_cleanup(ErlNifEnv* env, void* arg);
 static void free_temp_data(gdal_tile_handle* hTile);
+static ERL_NIF_TERM get_rasterinfo(ErlNifEnv* env, GDALDatasetH ds, bool* flag);
 static ERL_NIF_TERM make_error_msg(ErlNifEnv* env, const char* msg);
 
 static ErlNifFunc nif_funcs[] =
@@ -211,10 +214,18 @@ static ERL_NIF_TERM gdal_nif_create_warped_vrt(ErlNifEnv* env, int argc,
             handle->tilebands = dataBandsCount + 1;
 
 
-            ERL_NIF_TERM res = enif_make_resource(env, handle);
+            bool successed = true;
+            ERL_NIF_TERM rasterres = get_rasterinfo(env, out_ds, &successed);
+            if (!successed) {
+                //destroy_img_handle(handle);
+                return rasterres;
+            }
+            ERL_NIF_TERM rasterinfo = rasterres;
+
+            ERL_NIF_TERM imgref = enif_make_resource(env, handle);
             enif_release_resource(handle);
 
-            return enif_make_tuple2(env, ATOM_OK, res);
+            return enif_make_tuple3(env, ATOM_OK, imgref, rasterinfo);
         }
         else {
             const char* msg = "It is not possible to open the input file '%s'.";
@@ -226,6 +237,28 @@ static ERL_NIF_TERM gdal_nif_create_warped_vrt(ErlNifEnv* env, int argc,
     else {
         return enif_make_badarg(env);
     }
+}
+
+static ERL_NIF_TERM get_rasterinfo(ErlNifEnv* env, GDALDatasetH out_ds, bool* successed) {
+    double padfTransform[6];
+    GDALGetGeoTransform(out_ds, padfTransform);
+    if (padfTransform[2] != 0.0 && padfTransform[4] != 0.0) {
+//        destroy_img_handle(handle);
+        *successed = false;
+        return make_error_msg(env,
+                              "Georeference of the raster contains rotation or skew. "
+                              "Such raster is not supported. "
+                              "Please use gdalwarp first");
+    }
+
+    *successed = true;
+    return enif_make_tuple6(env, 
+                enif_make_double(env, padfTransform[0]),        // OriginX 
+                enif_make_double(env, padfTransform[3]),        // OriginY
+                enif_make_double(env, padfTransform[1]),        // PixelXSize
+                enif_make_double(env, padfTransform[5]),        // PixelYSize
+                enif_make_int(env, GDALGetRasterXSize(out_ds)), // RasterXSize
+                enif_make_int(env, GDALGetRasterYSize(out_ds)));// RasterYSize
 }
 
 static ERL_NIF_TERM gdal_nif_copyout_tile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

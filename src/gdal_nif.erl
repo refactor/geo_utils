@@ -35,7 +35,7 @@ build_out_ds_srs_wkt(_EpsgCode) ->
     ?nif_stub.
 
 %% @doc build out_ds in global world of EPSP:Code projection
--spec create_warped_vrt(ImgFileName::string(), VrtEpsgCode::non_neg_integer()) -> {ok, reference()} | {error, string()}.
+-spec create_warped_vrt(ImgFileName::string(), VrtEpsgCode::non_neg_integer()) -> {ok, reference(), global_grid:rasterinfo()} | {error, string()}.
 create_warped_vrt(_ImgFileName, _VrtEpsgCode) ->
     ?nif_stub.
 
