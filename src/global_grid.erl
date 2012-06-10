@@ -18,7 +18,7 @@
          pixels_to_tile/2]).
 
 -export([
-         coordinates_to_tile/4  % Returns tile for given coordinates
+         coordinates_to_tile/4  % Returns tile for given coordinates, export for eunit
         ]).
 
 -export_type([world_state/0, bound/0, bandregion/0, rasterinfo/0]).
@@ -27,7 +27,8 @@
 behaviour_info(callbacks) ->
     [{init_world_state, 0},
      {tile_bounds, 3},          % Returns bounds of the given tile
-     {coordinates_to_pixels, 3},
+     {coordinates_to_pixels, 3},% for coordinates_to_tiles which return tile of 
+                                % given coordinates in differnent projection or tile profile
      {zoom_for_pixelsize, 1},   % Max scaledown zoom of the pyramid closest to the pixelSize
      {resolution, 1},           % Resolution for given zoom level
      {epsg_code, 0}];           % EPSG code for Projection 
@@ -83,10 +84,10 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %% {LeftTopX, LeftTopY, RightBottomX, RightBottomY} = _Bound
 -spec geo_query(rasterinfo(), bound(), non_neg_integer()) -> {bandregion(), bandregion()}.
 geo_query({OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize}, {Ulx, Uly, Lrx, Lry}, QuerySize) ->
-    Rx = trunc( (Ulx - OriginX) / PixelSizeX + 0.001 ),
-    Ry = trunc( (Uly - OriginY) / PixelSizeY + 0.001 ),
-    Rxsize = trunc( (Lrx - Ulx) / PixelSizeX + 0.5 ),
-    Rysize = trunc( (Lry - Uly) / PixelSizeY + 0.5 ),
+    Rx = erlang:trunc( (Ulx - OriginX) / PixelSizeX + 0.001 ),
+    Ry = erlang:trunc( (Uly - OriginY) / PixelSizeY + 0.001 ),
+    Rxsize = erlang:trunc( (Lrx - Ulx) / PixelSizeX + 0.5 ),
+    Rysize = erlang:trunc( (Lry - Uly) / PixelSizeY + 0.5 ),
 
     {NewRx, NewWx, ResWxsize, ResRxsize} = adjust_byedge(Rx, Rxsize, RasterXSize, QuerySize),
     {NewRy, NewWy, ResWysize, ResRysize} = adjust_byedge(Ry, Rysize, RasterYSize, QuerySize),
@@ -125,6 +126,9 @@ calc_zoomlevel_range(ProjMod, RasterInfo) ->
     Tmaxz = ProjMod:zoom_for_pixelsize( PixelSizeX ),
     {Tminz, Tmaxz}.
 
+%% @doc Get the tiles range of the region enclosure for a zoom level, 
+%% in a specified projection profile
+-spec calc_tminmax(ProjMod::atom(), enclosure(), byte()) -> enclosure().
 calc_tminmax(ProjMod, {Ominx, Ominy, Omaxx, Omaxy} = _Enclosure, Zoom) ->
     {Tminx, Tminy} = coordinates_to_tile( ProjMod, Ominx, Ominy, Zoom ),
     {Tmaxx, Tmaxy} = coordinates_to_tile( ProjMod, Omaxx, Omaxy, Zoom ),
@@ -156,12 +160,12 @@ pixels_to_tile(Px, Py) ->
 %% @doc Coordinates should not go out of the bounds of the raster
 -spec adjust_byedge(integer(), integer(), non_neg_integer(), non_neg_integer()) -> bandregion().
 adjust_byedge(R, Rsize, RasterSize, QuerySize) ->
-    if
-        QuerySize == 0 ->
-            Wsize0 = Rsize;
-        true ->
-            Wsize0 = QuerySize
-    end,
+    Wsize0 = 
+        if QuerySize == 0 ->
+                Rsize;
+            true ->
+                QuerySize
+        end,
 
     {NewR, NewW, NewWsize, NewRsize} = 
         if R < 0 ->

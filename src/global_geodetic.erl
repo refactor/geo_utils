@@ -1,4 +1,5 @@
-%% @doc base on EPSG:4326
+%% @doc TileMap profile: global-geodetic
+%% which is base on EPSG:4326
 %%
 -module(global_geodetic).
 -behaviour(global_grid).

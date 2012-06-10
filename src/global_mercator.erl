@@ -1,4 +1,5 @@
-%% @doc base on EPSG:3785 ( = EPSG:900913)
+%% @doc TileMap profile: global-mercator
+%% which is base on EPSG:3785 ( = EPSG:900913)
 %%
 -module(global_mercator).
 -behaviour(global_grid).
