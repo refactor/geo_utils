@@ -15,12 +15,11 @@
          coordinates_to_tile/4  % Returns tile for given coordinates
         ]).
 
--export_type([world_state/0, bound/0, bandregion/0, rasterinfo/0]).
+-export_type([bound/0, bandregion/0, rasterinfo/0]).
 
 -spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
 behaviour_info(callbacks) ->
-    [{init_world_state, 0},
-     {tile_bounds, 3},          % Returns bounds of the given tile
+    [{tile_bounds, 3},          % Returns bounds of the given tile
      {coordinates_to_pixels, 3},% for coordinates_to_tiles which return tile of 
                                 % given coordinates in differnent projection or tile profile
      {zoom_for_pixelsize, 1},   % Max scaledown zoom of the pyramid closest to the pixelSize
@@ -29,8 +28,6 @@ behaviour_info(callbacks) ->
 behaviour_info(_Other) ->
     undefined.
 
-
--type world_state() :: #w_state{}.
 
 %% {LeftTopX, LeftTopY, RightBottomX, RightBottomY} = Bound
 -type bound() :: {LeftTopX::float(), LeftTopY::float(), RightBottomX::float(), RightBottom::float()}.

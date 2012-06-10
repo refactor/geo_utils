@@ -61,6 +61,6 @@ tile_export(Tile, {Tx, Ty, Tz}) ->
             integer_to_list(Tz), integer_to_list(Tx), 
             integer_to_list(Ty) ++ "." ++ TilesFileExt]),
     ok = filelib:ensure_dir(TileFilename),
-    lager:info("saved tile(~p)", [TileFilename]),
+    lager:debug("saved tile(~p)", [TileFilename]),
     gdal_nif:save_tile(Tile, TileFilename),
     ok.

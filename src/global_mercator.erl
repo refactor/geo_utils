@@ -5,8 +5,7 @@
 -behaviour(global_grid).
 -include("global_grid.hrl").
 
--export([init_world_state/0, 
-         tile_bounds/3, 
+-export([tile_bounds/3, 
          coordinates_to_pixels/3,
          zoom_for_pixelsize/1, 
          resolution/1, 
@@ -33,9 +32,6 @@
 %% ===================================================================
 %% callback functions
 %% ===================================================================
--spec init_world_state() -> global_grid:world_state().
-init_world_state() ->
-    #w_state{}.
 
 %% @doc Returns bounds of the given tile in EPSG:3785 or EPSG:900913 coordinates
 -spec tile_bounds(TX::integer(), TY::integer(), Zoom::byte()) -> global_grid:bound().

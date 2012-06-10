@@ -18,6 +18,12 @@
 -export([start_link/2
         ]).
 
+-record(state, {
+    map_profile,    % tile map profile, such as global-geodetic or global-mercator module
+    img_filename    :: string(),
+    tile_size = 256 :: integer()
+}).
+
 -record(tile_position, {current_tile_x :: integer(), 
                         current_tile_y :: integer(), 
                         tile_zoom      :: byte(),
@@ -27,11 +33,12 @@ start_link(TileMapProfileMod, ImgFileName) ->
     gen_fsm:start_link(?MODULE, {TileMapProfileMod, ImgFileName}, []).
 
 init({ProfileMod, ImgFileName}) ->
-    {ok, copyouting, #w_state{map_profile=ProfileMod, 
-                              img_filename=ImgFileName}}.
+    self() ! start,
+    {ok, copyouting, #state{map_profile=ProfileMod, 
+                            img_filename=ImgFileName}}.
 
 copyouting({continue, {Img, RasterInfo, TileX, TileY, TileZoom}, Continuation}, State) ->
-    {ok, TileRawdata} = global_grid:copyout_tile_for(State#w_state.map_profile, 
+    {ok, TileRawdata} = global_grid:copyout_tile_for(State#state.map_profile, 
                                                      TileY, TileX, TileZoom, 
                                                      Img, RasterInfo),
     tile_builder:start_link(self(), {TileRawdata, {TileX, TileY, TileZoom}}),
@@ -46,7 +53,7 @@ listening(_Event, State) ->
 
 handle_event(debug, StateName, StateData) ->
     io:format("handle EVENT~n"),
-    lager:info("~p", [StateData]),
+    lager:debug("~p", [StateData]),
     {next_state, StateName, StateData};
 handle_event(_Event, StateName, StateData) ->
     {next_state, StateName, StateData}.
@@ -54,7 +61,7 @@ handle_event(_Event, StateName, StateData) ->
 handle_sync_event(_Event, _From, StateName, StateData) ->
     {next_state, StateName, StateData}.
 
-handle_info(start, StateName, StateData = #w_state{map_profile=ProfileMod, img_filename=ImgFileName}) ->
+handle_info(start, StateName, StateData = #state{map_profile=ProfileMod, img_filename=ImgFileName}) ->
     gen_fsm:send_event(self(), img_scanner:scan_img(ProfileMod, ImgFileName)),
     {next_state, StateName, StateData}.
 
