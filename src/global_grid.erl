@@ -14,17 +14,19 @@
          terminate/3, 
          code_change/4]).
 
--export([zoom_for_pixelsize/3]).
+-export([zoom_for_pixelsize/3, 
+         pixels_to_tile/2]).
 
 -export_type([world_state/0, bound/0, bandregion/0, rasterinfo/0]).
 
 -spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
 behaviour_info(callbacks) ->
     [{init_world_state, 0},
-     {tile_bounds, 3},
-     {zoom_for_pixelsize, 1},
-     {resolution, 1},
-     {epsg_code, 0}];
+     {tile_bounds, 3},          % Returns bounds of the given tile
+     {coordinates_to_tile, 3},  % Returns tile for given coordinates
+     {zoom_for_pixelsize, 1},   % Max scaledown zoom of the pyramid closest to the pixelSize
+     {resolution, 1},           % Resolution for given zoom level
+     {epsg_code, 0}];           % EPSG code for Projection 
 behaviour_info(_Other) ->
     undefined.
 
@@ -33,6 +35,8 @@ behaviour_info(_Other) ->
 
 %% {LeftTopX, LeftTopY, RightBottomX, RightBottomY} = Bound
 -type bound() :: {LeftTopX::float(), LeftTopY::float(), RightBottomX::float(), RightBottom::float()}.
+
+-type enclosure() :: {MinX::float(), MinY::float(), MaxX::float(), MaxY::float()}.
 
 %% XOffset: the pixel offset to the top left corner of the region of the band to be accessed
 %% YOffset: The line offset to the top left corner of the region of the band to be accessed. 
@@ -107,6 +111,33 @@ cfi(I) ->
         _ -> I - 1
     end.
 
+%% @doc Get the minimal and maximal zoom level
+%% minimal zoom level: map covers area equivalent to one tile
+%% maximal zoom level: closest possible zoom level up on the resolution of raster
+-spec calc_zoomlevel_range(ProjMod::atom(), rasterinfo()) -> {byte(), byte()}.
+calc_zoomlevel_range(ProjMod, RasterInfo) ->
+    {_OriginX, _OriginY, PixelSizeX, _PixelSizeY, RasterXSize, RasterYSize} = RasterInfo,
+    Tminz = ProjMod:zoom_for_pixelsize( PixelSizeX * max( RasterXSize, RasterYSize) / ?TILE_SIZE ),
+    Tmaxz = ProjMod:zoom_for_pixelsize( PixelSizeX ),
+    {Tminz, Tmaxz}.
+
+calc_tminmax(ProjMod, {Ominx, Ominy, Omaxx, Omaxy} = Enclosure, Zoom) ->
+    {Tminx, Tminy} = ProjMod:coordinates_to_tile( Ominx, Ominy, Zoom ),
+    {Tmaxx, Tmaxy} = ProjMod:coordinates_to_tile( Omaxx, Omaxy, Zoom ),
+    Z = trunc(math:pow(2, Zoom)) - 1,
+    EnclosureOfZoom = {
+        max(0, Tminx), max(0, Tminy), 
+        min(Z, Tmaxx), min(Z, Tmaxy)
+    },
+    EnclosureOfZoom.
+
+%% @doc Returns coordinates of the tile covering region in pixel coordinates
+pixels_to_tile(Px, Py) ->
+    Tx = erlang:trunc( math_utils:ceiling( Px / float(?TILE_SIZE) ) - 1),
+    Ty = erlang:trunc( math_utils:ceiling( Py / float(?TILE_SIZE) ) - 1),
+    {Tx, Ty}.
+
+
 %% ===================================================================
 %% private functions
 %% ===================================================================
@@ -141,6 +172,13 @@ adjust_byedge(R, Rsize, RasterSize, QuerySize) ->
     {NewR, NewW, ResWsize, ResRsize}.
 
 
+-spec get_enclosure(rasterinfo()) -> enclosure().
+get_enclosure(RasterInfo) ->
+    {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize} = RasterInfo,
+    ExtX = OriginX + PixelSizeX * RasterXSize,
+    ExtY = OriginY + PixelSizeY * RasterYSize,
+    {min(OriginX, ExtX), min(OriginY, ExtY), max(OriginX, ExtX), max(OriginY, ExtY)}.
+
 %% ===================================================================
 %% EUnit tests
 %% ===================================================================
@@ -155,5 +193,12 @@ geo_quert_test() ->
     {Rb, Wb} = geo_query({OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize}, MinMaxBound, 0),
     ?assertEqual({0, 14507459, -49680575, -14444498}, Rb),
     ?assertEqual({49682152, 0, -49680575, -14444498}, Wb).
+
+pixels_to_tile_test() ->
+    io:format("P2T: ~p~n", [pixels_to_tile(0,0)]),
+    math_utils:xy_assert({-1, -1}, pixels_to_tile(0, 0)),
+    math_utils:xy_assert({0, 0}, pixels_to_tile(10, 10)),
+    math_utils:xy_assert({3, 3}, pixels_to_tile(1000, 1000)),
+    math_utils:xy_assert({3, 39}, pixels_to_tile(1000, 10000)).
 
 -endif.

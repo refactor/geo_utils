@@ -4,7 +4,12 @@
 -behaviour(global_grid).
 -include("global_grid.hrl").
 
--export([init_world_state/0, tile_bounds/3, zoom_for_pixelsize/1, resolution/1, epsg_code/0]).
+-export([init_world_state/0, 
+         tile_bounds/3, 
+         coordinates_to_tile/3,
+         zoom_for_pixelsize/1, 
+         resolution/1, 
+         epsg_code/0]).
 
 
 -ifdef(TEST).
@@ -18,7 +23,7 @@
 init_world_state() ->
     #w_state{}.
 
-%% Returns bounds of the given tile
+%% @doc Returns bounds of the given tile
 -spec tile_bounds(TX::integer(), TY::integer(), Zoom::byte()) -> global_grid:bound().
 tile_bounds(TX, TY, Zoom) ->
     Res = 180.0 / math:pow(2, Zoom),
@@ -27,11 +32,6 @@ tile_bounds(TX, TY, Zoom) ->
     MaxX = (TX + 1) * Res - 180,
     MaxY = (TY + 1) * Res - 90,
     {MinX, MinY, MaxX, MaxY}.
-
-%% @doc Maximal scaledown zoom of the pyramid closest to the pixelSize.
--spec zoom_for_pixelsize(PixelSize::float()) -> byte().
-zoom_for_pixelsize(PixelSize) ->
-    global_grid:zoom_for_pixelsize(fun ?MODULE:resolution/1, PixelSize, 0).
 
 %% @doc Resolution (arc/pixel) for given zoom level (measured at Equator)
 -spec resolution(Zoom::byte()) -> float().
@@ -43,6 +43,28 @@ resolution(Zoom) ->
 epsg_code() ->
     4326.
 
+%% @doc Maximal scaledown zoom of the pyramid closest to the pixelSize.
+-spec zoom_for_pixelsize(PixelSize::float()) -> byte().
+zoom_for_pixelsize(PixelSize) ->
+    global_grid:zoom_for_pixelsize(fun ?MODULE:resolution/1, PixelSize, 0).
+
+%% @doc Returns tile for given coordinates
+%% Returns the tile for zoom which covers given lat/lon coordinates
+-spec coordinates_to_tile(float(), float(), byte()) -> {integer(), integer()}.
+coordinates_to_tile(Lat, Lon, Zoom) ->
+    {Px, Py} = latlon_to_pixel(Lat, Lon, Zoom),
+    global_grid:pixels_to_tile(Px, Py).
+
+%% ===================================================================
+%% private functions
+%% ===================================================================
+
+%% @doc Converts lat/lon to pixel coordinates in given zoom of the EPSG:4326 pyramid"
+latlon_to_pixel(Lat, Lon, Zoom) ->
+    Res = resolution(Zoom),
+    Px = (180.0 + Lat) / Res,
+    Py = (90.0 + Lon) / Res,
+    {Px, Py}.
 
 %% ===================================================================
 %% EUnit tests
@@ -69,5 +91,17 @@ zoom_for_pixelsize_test() ->
     ?assertEqual(3, zoom_for_pixelsize(0.07)),
     ?assertEqual(6, zoom_for_pixelsize(0.01)),
     ?assertEqual(9, zoom_for_pixelsize(0.001)).
+
+coordinates_to_tile_test() ->
+    ?assertMatch({0, 0}, coordinates_to_tile(0, 0, 0)),
+    ?assertMatch({1, 0}, coordinates_to_tile(119.7, 39.9, 0)),
+    ?assertMatch({872939, 378361}, coordinates_to_tile(119.7, 39.9, 19)).
+
+latlon_to_pixel_test() ->
+    math_utils:xy_assert({256.0, 128.0}, latlon_to_pixel(0, 0, 0)),
+    math_utils:xy_assert({276707.55555555556, 145635.55555555556}, 
+                         latlon_to_pixel(10, 10, 10)),
+    math_utils:xy_assert({110543212.08888888, 48467512.888888888}, 
+                         latlon_to_pixel(116.5, 40, 18)).
 
 -endif.
