@@ -1,25 +1,13 @@
 -module(global_grid).
--behaviour(gen_fsm).
 
 -include("global_grid.hrl").
 
 -export([behaviour_info/1]).
 
--export([init/1,
-         copyouting/2, 
-         listening/2, 
-         handle_event/3, 
-         handle_sync_event/4, 
-         handle_info/3, 
-         terminate/3, 
-         code_change/4]).
-
-%% API
--export([start_link/2,
-         calc_tiles_enclosure/2]).
-
 %% 
 -export([zoom_for_pixelsize/3, 
+         copyout_tile_for/6,
+         calc_tiles_enclosure/2,
          pixels_to_tile/2]).
 
 %% export for eunit
@@ -59,43 +47,8 @@ behaviour_info(_Other) ->
 -type rasterinfo() :: {float(), float(), float(), float(), non_neg_integer(), non_neg_integer()}.
 
 
-start_link(TileMapProfileMod, ImgFileName) ->
-    gen_fsm:start_link(?MODULE, {TileMapProfileMod, ImgFileName}, []).
-
-init({ProfileMod, ImgFileName}) ->
-    {ok, copyouting, #w_state{map_profile=ProfileMod, 
-                              img_filename=ImgFileName}}.
-
-copyouting({continue, {Img, RasterInfo, TileX, TileY, TileZoom}, Continuation}, State) ->
-    {ok, TileRawdata} = copyout_tile_for(State#w_state.map_profile, TileY, TileX, TileZoom, Img, RasterInfo),
-    {next_state, copyouting, State};
-copyouting(Event, State) ->
-    {next_state, copyouting, State}.
-
-listening(Event, State) ->
-    {next_state, listening, State}.
-
-handle_event(debug, StateName, StateData) ->
-    io:format("handle EVENT~n"),
-    lager:info("~p", [StateData]),
-    {next_state, StateName, StateData};
-handle_event(Event, StateName, StateData) ->
-    {next_state, copyouting, StateData}.
-    
-handle_sync_event(Event, From, StateName, StateData) ->
-    {next_state, copyouting, StateData}.
-
-handle_info(start, StateName, StateData = #w_state{map_profile=ProfileMod, img_filename=ImgFileName}) ->
-    gen_fsm:send_event(self(), img_scanner:scan_img(ProfileMod, ImgFileName)),
-    {next_state, StateName, StateData}.
-
-terminate(Reason, StateName, StateData) ->
-    ok.
-
-code_change(_OldVsn, State, Data, _Extra) ->
-    {ok, State, Data}.
-
 copyout_tile_for(ProjMod, Ty, Tx, Tz, Img, RasterInfo) ->
+    QuerySize = 256,
     {MinX, MinY, MaxX, MaxY} = get_tile_coordinates_enclosure(ProjMod, Tx, Ty, Tz),
     Bound = {MinX, MaxY, MaxX, MinY},
     {Rb, Wb} = geo_query(RasterInfo, Bound, QuerySize),
