@@ -19,18 +19,19 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-start_link(ScannerPid, {Tile, {Tx, Ty, Tz}}) ->
-    gen_server:start_link(?MODULE, [ScannerPid, {Tile, {Tx, Ty, Tz}}], []).
+start_link(ScannerInfo, {Tile, {Tx, Ty, Tz}}) ->
+    gen_server:start_link(?MODULE, [ScannerInfo, {Tile, {Tx, Ty, Tz}}], []).
 
--record(state, {scanner, tile, tileinfo}).
+-record(state, {scanner, ref, tile, tileinfo}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init([ScannerPid, {Tile, {Tx, Ty, Tz}}]) ->
+init([{ScannerPid, Ref}, {Tile, {Tx, Ty, Tz}}]) ->
     self() ! start,
     {ok, #state{scanner=ScannerPid,
+                ref = Ref,
                 tile = Tile, 
                 tileinfo={Tx,Ty,Tz}} }.
 
@@ -40,9 +41,10 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info(start, State = #state{tile=Tile, tileinfo={Tx,Ty,Tz}}) ->
+handle_info(start, State = #state{ref=Ref, tile=Tile, tileinfo={Tx,Ty,Tz}}) ->
     gdal_nif:build_tile(Tile),
     tile_export(Tile, {Tx, Ty, Tz}),
+    img_scanner:complete(State#state.scanner, Ref, {Tx,Ty,Tz}),
     {stop, normal, State}.
 
 terminate(_Reason, _State) ->
