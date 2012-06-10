@@ -53,6 +53,7 @@ zoom_for_pixelsize(PixelSize) ->
 %%
 %% @doc Converts lat/lon to pixel coordinates in given zoom of the EPSG:4326 pyramid"
 %% LatLonToPixels, for EPSG:4326
+%% This is a intermediate function, called by coordinates_to_tile
 coordinates_to_pixels(Lat, Lon, Zoom) ->
     Res = resolution(Zoom),
     Px = (180.0 + Lat) / Res,

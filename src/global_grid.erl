@@ -47,8 +47,9 @@ behaviour_info(_Other) ->
 -type rasterinfo() :: {float(), float(), float(), float(), non_neg_integer(), non_neg_integer()}.
 
 
+-spec copyout_tile_for(atom(), integer(), integer(), byte(), reference(), global_grid:rasterinfo()) -> {ok, reference()} | {error, string()}.
 copyout_tile_for(ProjMod, Ty, Tx, Tz, Img, RasterInfo) ->
-    QuerySize = 256,
+    QuerySize = 4 * ?TILE_SIZE,
     {MinX, MinY, MaxX, MaxY} = get_tile_coordinates_enclosure(ProjMod, Tx, Ty, Tz),
     Bound = {MinX, MaxY, MaxX, MinY},
     {Rb, Wb} = geo_query(RasterInfo, Bound, QuerySize),

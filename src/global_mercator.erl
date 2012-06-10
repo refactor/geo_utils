@@ -63,7 +63,8 @@ epsg_code() ->
 %%
 %% @doc Converts EPSG:3785 to pyramid pixel coordinates in given zoom level
 %% MetersToPixels, for EPSG:3785
--spec coordinates_to_pixels(float(), float(), byte()) -> {integer(), integer()}.
+%% This is a intermediate function, called by coordinates_to_tile
+-spec coordinates_to_pixels(float(), float(), byte()) -> {float(), float()}.
 coordinates_to_pixels(MX, MY, Zoom) ->
     Resolution = resolution(Zoom),
     PX = (MX + ?ORIGIN_SHIFT) / Resolution,
