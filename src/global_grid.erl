@@ -17,13 +17,17 @@
 -export([zoom_for_pixelsize/3, 
          pixels_to_tile/2]).
 
+-export([
+         coordinates_to_tile/4  % Returns tile for given coordinates
+        ]).
+
 -export_type([world_state/0, bound/0, bandregion/0, rasterinfo/0]).
 
 -spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
 behaviour_info(callbacks) ->
     [{init_world_state, 0},
      {tile_bounds, 3},          % Returns bounds of the given tile
-     {coordinates_to_tile, 3},  % Returns tile for given coordinates
+     {coordinates_to_pixels, 3},
      {zoom_for_pixelsize, 1},   % Max scaledown zoom of the pyramid closest to the pixelSize
      {resolution, 1},           % Resolution for given zoom level
      {epsg_code, 0}];           % EPSG code for Projection 
@@ -63,13 +67,13 @@ handle_event(Event, StateName, StateData) ->
 handle_sync_event(Event, From, StateName, StateData) ->
     {next_stage, copying, StateData}.
 
- handle_info(Info, StateName, StateData) ->
+handle_info(Info, StateName, StateData) ->
     {next_stage, copying, StateData}.
 
- terminate(Reason, StateName, StateData) ->
+terminate(Reason, StateName, StateData) ->
     ok.
 
- code_change(_OldVsn, State, Data, _Extra) ->
+code_change(_OldVsn, State, Data, _Extra) ->
     {ok, State, Data}.
 
 
@@ -121,9 +125,9 @@ calc_zoomlevel_range(ProjMod, RasterInfo) ->
     Tmaxz = ProjMod:zoom_for_pixelsize( PixelSizeX ),
     {Tminz, Tmaxz}.
 
-calc_tminmax(ProjMod, {Ominx, Ominy, Omaxx, Omaxy} = Enclosure, Zoom) ->
-    {Tminx, Tminy} = ProjMod:coordinates_to_tile( Ominx, Ominy, Zoom ),
-    {Tmaxx, Tmaxy} = ProjMod:coordinates_to_tile( Omaxx, Omaxy, Zoom ),
+calc_tminmax(ProjMod, {Ominx, Ominy, Omaxx, Omaxy} = _Enclosure, Zoom) ->
+    {Tminx, Tminy} = coordinates_to_tile( ProjMod, Ominx, Ominy, Zoom ),
+    {Tmaxx, Tmaxy} = coordinates_to_tile( ProjMod, Omaxx, Omaxy, Zoom ),
     Z = trunc(math:pow(2, Zoom)) - 1,
     EnclosureOfZoom = {
         max(0, Tminx), max(0, Tminy), 
@@ -131,16 +135,23 @@ calc_tminmax(ProjMod, {Ominx, Ominy, Omaxx, Omaxy} = Enclosure, Zoom) ->
     },
     EnclosureOfZoom.
 
-%% @doc Returns coordinates of the tile covering region in pixel coordinates
-pixels_to_tile(Px, Py) ->
-    Tx = erlang:trunc( math_utils:ceiling( Px / float(?TILE_SIZE) ) - 1),
-    Ty = erlang:trunc( math_utils:ceiling( Py / float(?TILE_SIZE) ) - 1),
-    {Tx, Ty}.
+%% @doc Returns tile for given coordinates
+%% Returns the tile for zoom which covers given lat/lon coordinates
+-spec coordinates_to_tile(atom(), float(), float(), byte()) -> {integer(), integer()}.
+coordinates_to_tile(ProjMod, Lat, Lon, Zoom) ->
+    {Px, Py} = ProjMod:coordinates_to_pixels(Lat, Lon, Zoom),
+    pixels_to_tile(Px, Py).
 
 
 %% ===================================================================
 %% private functions
 %% ===================================================================
+
+%% @doc Returns coordinates of the tile covering region in pixel coordinates
+pixels_to_tile(Px, Py) ->
+    Tx = erlang:trunc( math_utils:ceiling( Px / float(?TILE_SIZE) ) - 1),
+    Ty = erlang:trunc( math_utils:ceiling( Py / float(?TILE_SIZE) ) - 1),
+    {Tx, Ty}.
 
 %% @doc Coordinates should not go out of the bounds of the raster
 -spec adjust_byedge(integer(), integer(), non_neg_integer(), non_neg_integer()) -> bandregion().

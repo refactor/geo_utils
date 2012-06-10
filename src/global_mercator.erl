@@ -4,7 +4,12 @@
 -behaviour(global_grid).
 -include("global_grid.hrl").
 
--export([init_world_state/0, tile_bounds/3, zoom_for_pixelsize/1, resolution/1, epsg_code/0]).
+-export([init_world_state/0, 
+         tile_bounds/3, 
+         coordinates_to_pixels/3,
+         zoom_for_pixelsize/1, 
+         resolution/1, 
+         epsg_code/0]).
 
 %-define(EARTH_RADIUS, 6378137).
 %-define(PI, math:pi()).
@@ -53,18 +58,28 @@ resolution(Zoom) ->
 epsg_code() ->
     3785.
 
+%% ----------------------- protected functions -----------------------
+%%
+%% @doc Converts EPSG:3785 to pyramid pixel coordinates in given zoom level
+%% MetersToPixels, for EPSG:3785
+-spec coordinates_to_pixels(float(), float(), byte()) -> {integer(), integer()}.
+coordinates_to_pixels(MX, MY, Zoom) ->
+    Resolution = resolution(Zoom),
+    PX = (MX + ?ORIGIN_SHIFT) / Resolution,
+    PY = (MY + ?ORIGIN_SHIFT) / Resolution,
+    {PX, PY}.
+
 %% ===================================================================
 %% private functions
 %% ===================================================================
 
 %% @doc Converts pixel coordinates in given zoom level of pyramid to EPSG:3785 or EPSG:900913
--spec(pixels_to_meters(PX::integer(), PY::integer(), Zoom::byte()) -> {float(), float()}).
+-spec pixels_to_meters(PX::integer(), PY::integer(), Zoom::byte()) -> {float(), float()}.
 pixels_to_meters(PX, PY, Zoom) ->
     Resolution = resolution(Zoom),
     MX = PX * Resolution - ?ORIGIN_SHIFT,
     MY = PY * Resolution - ?ORIGIN_SHIFT,
     {MX, MY}.
-
 
 %% ===================================================================
 %% EUnit tests
@@ -72,10 +87,12 @@ pixels_to_meters(PX, PY, Zoom) ->
 -ifdef(TEST).
 
 tile_bounds_test() ->
-    math_utils:swne_assert({-19841829.550379194, -19939668.946584217, -19832045.61075869, -19929885.006963715}, 
-                            tile_bounds(20, 10, 12)),
-    math_utils:swne_assert({-20037508.342789244, -20037508.342789244, 20037508.342789244, 20037508.342789244}, 
-                            tile_bounds(0, 0, 0)).
+    math_utils:swne_assert(
+        {-19841829.550379194, -19939668.946584217, -19832045.61075869, -19929885.006963715}, 
+        tile_bounds(20, 10, 12)),
+    math_utils:swne_assert(
+        {-20037508.342789244, -20037508.342789244, 20037508.342789244, 20037508.342789244}, 
+        tile_bounds(0, 0, 0)).
 
 zoom_for_pixelsize_test() ->
     ?assertEqual(0, zoom_for_pixelsize(1000000)),
@@ -84,10 +101,20 @@ zoom_for_pixelsize_test() ->
     ?assertEqual(30, zoom_for_pixelsize(0.0000728964)),
     ?assertEqual(3, zoom_for_pixelsize(10000)).
 
-pixels_to_meters_test_() ->
-    [
-        ?_test(math_utils:xy_assert({762677661.29741549, 762677661.29741549}, pixels_to_meters(10000, 10000, 1))),
-        ?_test(math_utils:xy_assert({-4383204.9499851465, -4383204.9499851465}, pixels_to_meters(100, 100, 0)))
-    ].
+pixels_to_meters_test() ->
+    math_utils:xy_assert({762677661.29741549, 762677661.29741549}, 
+                         pixels_to_meters(10000, 10000, 1)),
+    math_utils:xy_assert({-4383204.9499851465, -4383204.9499851465}, 
+                         pixels_to_meters(100, 100, 0)).
+
+coordinates_to_tile_test() ->
+    ?assertMatch({0, 0}, 
+                 global_grid:coordinates_to_tile(?MODULE, 0, 0, 0)),
+    ?assertMatch({0, 0}, 
+                 global_grid:coordinates_to_tile(?MODULE, 0, 0, 1)),
+    ?assertMatch({131071, 131071}, 
+                 global_grid:coordinates_to_tile(?MODULE, 0, 0, 18)),
+    ?assertMatch({1956802, 266353}, 
+                 global_grid:coordinates_to_tile(?MODULE, 129534670,321750, 19)).
 
 -endif.
