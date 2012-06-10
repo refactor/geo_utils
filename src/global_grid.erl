@@ -5,8 +5,8 @@
 
 -export([behaviour_info/1]).
 
--export([init/1, 
-         copying/2, 
+-export([init/1,
+         copyouting/2, 
          listening/2, 
          handle_event/3, 
          handle_sync_event/4, 
@@ -15,7 +15,8 @@
          code_change/4]).
 
 %% API
--export([start_link/2]).
+-export([start_link/2,
+         calc_tiles_enclosure/2]).
 
 %% 
 -export([zoom_for_pixelsize/3, 
@@ -61,16 +62,15 @@ behaviour_info(_Other) ->
 start_link(TileMapProfileMod, ImgFileName) ->
     gen_fsm:start_link(?MODULE, {TileMapProfileMod, ImgFileName}, []).
 
-init({ProfileMod, DatasetFileName}) ->
-    {ok, Img, RasterInfo} = gdal_nif:create_warped_vrt(DatasetFileName, 
-                                                       ProfileMod:epsg_code()),
-    {ok, copying, #w_state{
-                    map_profile=ProfileMod, 
-                    img=Img, 
-                    rasterinfo=RasterInfo}}.
+init({ProfileMod, ImgFileName}) ->
+    {ok, copyouting, #w_state{map_profile=ProfileMod, 
+                              img_filename=ImgFileName}}.
 
-copying(Event, State) ->
-    {next_state, copying, State}.
+copyouting({continue, {Img, RasterInfo, TileX, TileY, TileZoom}, Continuation}, State) ->
+    {ok, TileRawdata} = copyout_tile_for(State#w_state.map_profile, TileY, TileX, TileZoom, Img, RasterInfo),
+    {next_state, copyouting, State};
+copyouting(Event, State) ->
+    {next_state, copyouting, State}.
 
 listening(Event, State) ->
     {next_state, listening, State}.
@@ -80,19 +80,26 @@ handle_event(debug, StateName, StateData) ->
     lager:info("~p", [StateData]),
     {next_state, StateName, StateData};
 handle_event(Event, StateName, StateData) ->
-    {next_state, copying, StateData}.
+    {next_state, copyouting, StateData}.
     
 handle_sync_event(Event, From, StateName, StateData) ->
-    {next_state, copying, StateData}.
+    {next_state, copyouting, StateData}.
 
-handle_info(Info, StateName, StateData) ->
-    {next_state, copying, StateData}.
+handle_info(start, StateName, StateData = #w_state{map_profile=ProfileMod, img_filename=ImgFileName}) ->
+    gen_fsm:send_event(self(), img_scanner:scan_img(ProfileMod, ImgFileName)),
+    {next_state, StateName, StateData}.
 
 terminate(Reason, StateName, StateData) ->
     ok.
 
 code_change(_OldVsn, State, Data, _Extra) ->
     {ok, State, Data}.
+
+copyout_tile_for(ProjMod, Ty, Tx, Tz, Img, RasterInfo) ->
+    {MinX, MinY, MaxX, MaxY} = get_tile_coordinates_enclosure(ProjMod, Tx, Ty, Tz),
+    Bound = {MinX, MaxY, MaxX, MinY},
+    {Rb, Wb} = geo_query(RasterInfo, Bound, QuerySize),
+    gdal_nif:copyout_tile(Img, Rb, Wb).
 
 
 %% @doc For given dataset and query in cartographic coordinates returns parameters for ReadRaster() in 
@@ -132,6 +139,17 @@ cfi(I) ->
         0 -> 0;  % We don't want to scale up
         _ -> I - 1
     end.
+
+%% @doc calculate the tiles enclosure of the img Raster in a specified zoom level
+%% the zoom level is dicided by the img precision which is defined in RasterInfo
+%% and used for base_tiles of the img
+-spec calc_tiles_enclosure(atom(), rasterinfo()) -> {byte(), enclosure()}.
+calc_tiles_enclosure(ProjMod, RasterInfo) ->
+    {_Tminz, Tmaxz} = calc_zoomlevel_range(ProjMod, RasterInfo),
+    SpatialEnclosure = get_img_coordinates_enclosure(RasterInfo),
+    TileEnclosure = calc_tminmax(ProjMod, SpatialEnclosure, Tmaxz),
+    {Tmaxz, TileEnclosure}.
+
 
 %% @doc Get the minimal and maximal zoom level
 %% minimal zoom level: map covers area equivalent to one tile
@@ -204,12 +222,18 @@ adjust_byedge(R, Rsize, RasterSize, QuerySize) ->
     {NewR, NewW, ResWsize, ResRsize}.
 
 
--spec get_enclosure(rasterinfo()) -> enclosure().
-get_enclosure(RasterInfo) ->
+%% @doc get the geospatial encluse of a img, in projection coordiates unit
+-spec get_img_coordinates_enclosure(rasterinfo()) -> enclosure().
+get_img_coordinates_enclosure(RasterInfo) ->
     {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize} = RasterInfo,
     ExtX = OriginX + PixelSizeX * RasterXSize,
     ExtY = OriginY + PixelSizeY * RasterYSize,
     {min(OriginX, ExtX), min(OriginY, ExtY), max(OriginX, ExtX), max(OriginY, ExtY)}.
+
+%% @doc get geospatial enclosure of a tile, in projection coordinates unit
+get_tile_coordinates_enclosure(ProjMod, Tx, Ty, Tz) ->
+    ProjMod:tile_bounds(Tx, Ty, Tz).
+
 
 %% ===================================================================
 %% EUnit tests

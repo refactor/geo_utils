@@ -3,8 +3,7 @@
 
 -record(w_state, {
     map_profile,    % tile map profile, such as global-geodetic or global-mercator module
-    img             :: reference(),
-    rasterinfo,     % raster info of img
+    img_filename    :: string(),
     tile_size = 256 :: integer()
 }).
 
