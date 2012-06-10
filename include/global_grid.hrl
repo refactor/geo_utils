@@ -2,8 +2,9 @@
 -define(TILE_SIZE, 256).
 
 -record(w_state, {
-    global_projection,
-    out_ds          :: reference(),
+    map_profile,    % tile map profile, such as global-geodetic or global-mercator module
+    img             :: reference(),
+    rasterinfo,     % raster info of img
     tile_size = 256 :: integer()
 }).
 

@@ -14,11 +14,16 @@
          terminate/3, 
          code_change/4]).
 
+%% API
+-export([start_link/2]).
+
+%% 
 -export([zoom_for_pixelsize/3, 
          pixels_to_tile/2]).
 
+%% export for eunit
 -export([
-         coordinates_to_tile/4  % Returns tile for given coordinates, export for eunit
+         coordinates_to_tile/4  % Returns tile for given coordinates
         ]).
 
 -export_type([world_state/0, bound/0, bandregion/0, rasterinfo/0]).
@@ -53,23 +58,35 @@ behaviour_info(_Other) ->
 -type rasterinfo() :: {float(), float(), float(), float(), non_neg_integer(), non_neg_integer()}.
 
 
-init({ProjectionMod, DatasetFileName}) ->
-    {ok, copying, #w_state{global_projection=ProjectionMod}}.
+start_link(TileMapProfileMod, ImgFileName) ->
+    gen_fsm:start_link(?MODULE, {TileMapProfileMod, ImgFileName}, []).
+
+init({ProfileMod, DatasetFileName}) ->
+    {ok, Img, RasterInfo} = gdal_nif:create_warped_vrt(DatasetFileName, 
+                                                       ProfileMod:epsg_code()),
+    {ok, copying, #w_state{
+                    map_profile=ProfileMod, 
+                    img=Img, 
+                    rasterinfo=RasterInfo}}.
 
 copying(Event, State) ->
-    {next_stage, copying, State}.
+    {next_state, copying, State}.
 
 listening(Event, State) ->
-    {next_stage, listening, State}.
+    {next_state, listening, State}.
 
+handle_event(debug, StateName, StateData) ->
+    io:format("handle EVENT~n"),
+    lager:info("~p", [StateData]),
+    {next_state, StateName, StateData};
 handle_event(Event, StateName, StateData) ->
-    {next_stage, copying, StateData}.
+    {next_state, copying, StateData}.
     
 handle_sync_event(Event, From, StateName, StateData) ->
-    {next_stage, copying, StateData}.
+    {next_state, copying, StateData}.
 
 handle_info(Info, StateName, StateData) ->
-    {next_stage, copying, StateData}.
+    {next_state, copying, StateData}.
 
 terminate(Reason, StateName, StateData) ->
     ok.
