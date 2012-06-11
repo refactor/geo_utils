@@ -426,11 +426,15 @@ static ERL_NIF_TERM gdal_nif_tile_to_binary(ErlNifEnv* env, int argc, const ERL_
     if (!enif_get_resource(env, argv[0], gdal_tile_RESOURCE, (void**)&ti)) {
         return enif_make_badarg(env);
     }
-    
-    char tilefilename[64] = "";
-    if (enif_get_string(env, argv[1], tilefilename, 64, ERL_NIF_LATIN1) <= 0) {
+
+    ErlNifBinary tilefilenameBin;
+    if (enif_inspect_iolist_as_binary(env, argv[1], &tilefilenameBin) && (tilefilenameBin.size >= 64)) {
         return enif_make_badarg(env);
     }
+
+    char tilefilename[64] = "";
+    memcpy(tilefilename, tilefilenameBin.data, tilefilenameBin.size);
+    DEBUG("passed tilefilename: %s\r\n", tilefilename);
 
     GDALDriverH hOutDriver = GDALGetDriverByName("PNG");
     if ( ! ti->options_resampling || (strcmp("antialias", ti->options_resampling) != 0) ) {
@@ -446,13 +450,10 @@ static ERL_NIF_TERM gdal_nif_tile_to_binary(ErlNifEnv* env, int argc, const ERL_
 
         ERL_NIF_TERM binTerm;
         unsigned char* buf = enif_make_new_binary(env, binDataLength, &binTerm);
-        DEBUG("passed enif_make_new_bianry\r\n");
         memcpy(buf, binData, binDataLength);
  //       CPLFree(binData);
-        DEBUG("passed memcpy and CPLFree\r\n");
 
         GDALClose(tileBinDataset);
-        DEBUG("passed GDALClose\r\n");
         return enif_make_tuple2(env, ATOM_OK, binTerm);
     }
 
