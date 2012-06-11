@@ -6,6 +6,7 @@
 
 %% 
 -export([zoom_for_pixelsize/3, 
+         quadtree/3,
          copyout_tile_for/6,
          calc_tiles_enclosure/2,
          pixels_to_tile/2]).
@@ -133,6 +134,12 @@ coordinates_to_tile(ProjMod, Lat, Lon, Zoom) ->
     pixels_to_tile(Px, Py).
 
 
+%% @doc Converts TMS tile coordinates to Microsoft QuadTree
+-spec(quadtree(TX::integer(), TY::integer(), Zoom::byte()) -> string()).
+quadtree(TX, TY, Zoom) ->
+    Ty = trunc(math:pow(2, Zoom) - 1 - TY),
+    quadtree(TX, Ty, Zoom, "").
+
 %% ===================================================================
 %% private functions
 %% ===================================================================
@@ -186,6 +193,32 @@ get_tile_coordinates_enclosure(ProjMod, Tx, Ty, Tz) ->
     ProjMod:tile_bounds(Tx, Ty, Tz).
 
 
+-spec quadtree(TX::integer(), TY::integer(), Zoom::byte(), Quadtree::string()) -> string().
+quadtree(_TX, _TY, 0, Quadtree) -> 
+    Quadtree;
+quadtree(TX, TY, Zoom, Quadtree) -> 
+    Mask = 1 bsl (Zoom - 1),
+    Digit = bit_op(TX, TY, Mask),
+    quadtree(TX, TY, Zoom - 1, Quadtree ++ integer_to_list(Digit)).
+
+-spec bit_op(TX::integer(), TY::integer(), Mask::byte()) -> 0 | 1 | 2 | 3.
+bit_op(TX, TY, Mask) ->
+    R1 = 
+    if
+        TX band Mask =/= 0 ->
+            1;
+        true ->
+            0
+    end,
+    R2 =
+    if
+        TY band Mask =/= 0 ->
+            2;
+        true ->
+            0
+    end,
+    R1 + R2.
+
 %% ===================================================================
 %% EUnit tests
 %% ===================================================================
@@ -207,5 +240,11 @@ pixels_to_tile_test() ->
     math_utils:xy_assert({0, 0}, pixels_to_tile(10, 10)),
     math_utils:xy_assert({3, 3}, pixels_to_tile(1000, 1000)),
     math_utils:xy_assert({3, 39}, pixels_to_tile(1000, 10000)).
+
+quadtree_test() ->
+    ?assertEqual("2222222", quadtree(0, 0, 7)),
+    ?assertEqual("113113", quadtree(-1, -10, 6)),
+    ?assertEqual("2221", quadtree(1, 1, 4)),
+    ?assertEqual("22221", quadtree(1, 1, 5)).
 
 -endif.
