@@ -67,6 +67,7 @@ static ERL_NIF_TERM gdal_nif_close_img(ErlNifEnv* env, int argc, const ERL_NIF_T
 static ERL_NIF_TERM gdal_nif_copyout_tile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_build_tile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_save_tile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM gdal_nif_tile_to_binary(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_get_meta(ErlNifEnv* env, int argc,
                                       const ERL_NIF_TERM argv[]);
 
@@ -86,6 +87,7 @@ static ErlNifFunc nif_funcs[] =
     {"copyout_tile", 3, gdal_nif_copyout_tile},
     {"build_tile", 1, gdal_nif_build_tile},
     {"save_tile", 2, gdal_nif_save_tile},
+    {"tile_to_binary", 2, gdal_nif_tile_to_binary},
     {"get_meta", 1, gdal_nif_get_meta}
 };
 
@@ -418,6 +420,46 @@ static ERL_NIF_TERM gdal_nif_save_tile(ErlNifEnv* env, int argc, const ERL_NIF_T
     return ATOM_OK;
 }
 
+static ERL_NIF_TERM gdal_nif_tile_to_binary(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    gdal_tile_handle* ti;
+    if (!enif_get_resource(env, argv[0], gdal_tile_RESOURCE, (void**)&ti)) {
+        return enif_make_badarg(env);
+    }
+    
+    char tilefilename[64] = "";
+    if (enif_get_string(env, argv[1], tilefilename, 64, ERL_NIF_LATIN1) <= 0) {
+        return enif_make_badarg(env);
+    }
+
+    GDALDriverH hOutDriver = GDALGetDriverByName("PNG");
+    if ( ! ti->options_resampling || (strcmp("antialias", ti->options_resampling) != 0) ) {
+        char vsimemFileName[128] = "";
+        sprintf(vsimemFileName, "/vsimem/%s", tilefilename);
+        GDALDatasetH tileBinDataset = GDALCreateCopy(hOutDriver,
+                                                     vsimemFileName, ti->dstile, 
+                                                     FALSE, NULL, NULL, NULL);
+        vsi_l_offset binDataLength;
+        int bUnlinkAndSeize = FALSE;
+        GByte* binData = VSIGetMemFileBuffer(vsimemFileName, &binDataLength, bUnlinkAndSeize);
+        DEBUG("vsimem: %s, bin len: %d\r\n", vsimemFileName, binDataLength);
+
+        ERL_NIF_TERM binTerm;
+        unsigned char* buf = enif_make_new_binary(env, binDataLength, &binTerm);
+        DEBUG("passed enif_make_new_bianry\r\n");
+        memcpy(buf, binData, binDataLength);
+ //       CPLFree(binData);
+        DEBUG("passed memcpy and CPLFree\r\n");
+
+        GDALClose(tileBinDataset);
+        DEBUG("passed GDALClose\r\n");
+        return enif_make_tuple2(env, ATOM_OK, binTerm);
+    }
+
+    return make_error_msg(env, "wrong resampling");
+}
+
+
 static ERL_NIF_TERM gdal_nif_close_img(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     gdal_img_handle* handle = NULL;
@@ -561,12 +603,14 @@ static void destroy_img_handle(gdal_img_handle* handle) {
 static void gdal_nif_img_resource_cleanup(ErlNifEnv* env, void* arg)
 {
     /* Delete any dynamically allocated memory stored in gdal_img_handle */
+    DEBUG("Free img\r\n");
     gdal_img_handle* handle = (gdal_img_handle*)arg;
     free_img(handle);
 }
 
 static void gdal_nif_tile_resource_cleanup(ErlNifEnv* env, void* arg)
 {
+    DEBUG("Free tile\r\n");
     gdal_tile_handle* ti = (gdal_tile_handle*)arg;
     free_tile(ti);
 }

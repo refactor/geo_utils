@@ -7,6 +7,7 @@
 
 -export([copyout_tile/3,
          build_tile/1,
+         tile_to_binary/2,
          save_tile/2]).
 
 -on_load(init/0).
@@ -59,6 +60,9 @@ build_tile(_Tile) ->
 save_tile(_Tile, _TileFileName) ->
     ?nif_stub.
 
+-spec tile_to_binary(Tile::reference(), TileFileName::string()) -> {ok, binary()} | {error, string()}.
+tile_to_binary(_Tile, _TileFileName) ->
+    ?nif_stub.
 
 %% ===================================================================
 %% EUnit tests
