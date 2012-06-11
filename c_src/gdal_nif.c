@@ -428,7 +428,7 @@ static ERL_NIF_TERM gdal_nif_tile_to_binary(ErlNifEnv* env, int argc, const ERL_
     }
 
     ErlNifBinary tilefilenameBin;
-    if (enif_inspect_iolist_as_binary(env, argv[1], &tilefilenameBin) && (tilefilenameBin.size >= 64)) {
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &tilefilenameBin) || (tilefilenameBin.size >= 64)) {
         return enif_make_badarg(env);
     }
 

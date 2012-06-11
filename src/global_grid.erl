@@ -135,10 +135,10 @@ coordinates_to_tile(ProjMod, Lat, Lon, Zoom) ->
 
 
 %% @doc Converts TMS tile coordinates to Microsoft QuadTree
--spec(quadtree(TX::integer(), TY::integer(), Zoom::byte()) -> string()).
+-spec(quadtree(TX::integer(), TY::integer(), Zoom::byte()) -> binary()).
 quadtree(TX, TY, Zoom) ->
     Ty = trunc(math:pow(2, Zoom) - 1 - TY),
-    quadtree(TX, Ty, Zoom, "").
+    quadtree(TX, Ty, Zoom, <<>>).
 
 %% ===================================================================
 %% private functions
@@ -193,13 +193,13 @@ get_tile_coordinates_enclosure(ProjMod, Tx, Ty, Tz) ->
     ProjMod:tile_bounds(Tx, Ty, Tz).
 
 
--spec quadtree(TX::integer(), TY::integer(), Zoom::byte(), Quadtree::string()) -> string().
+-spec quadtree(TX::integer(), TY::integer(), Zoom::byte(), Quadtree::binary()) -> binary().
 quadtree(_TX, _TY, 0, Quadtree) -> 
     Quadtree;
 quadtree(TX, TY, Zoom, Quadtree) -> 
     Mask = 1 bsl (Zoom - 1),
     Digit = bit_op(TX, TY, Mask),
-    quadtree(TX, TY, Zoom - 1, Quadtree ++ integer_to_list(Digit)).
+    quadtree(TX, TY, Zoom - 1, <<Quadtree/binary, (Digit + $0)>>).
 
 -spec bit_op(TX::integer(), TY::integer(), Mask::byte()) -> 0 | 1 | 2 | 3.
 bit_op(TX, TY, Mask) ->
@@ -242,9 +242,9 @@ pixels_to_tile_test() ->
     math_utils:xy_assert({3, 39}, pixels_to_tile(1000, 10000)).
 
 quadtree_test() ->
-    ?assertEqual("2222222", quadtree(0, 0, 7)),
-    ?assertEqual("113113", quadtree(-1, -10, 6)),
-    ?assertEqual("2221", quadtree(1, 1, 4)),
-    ?assertEqual("22221", quadtree(1, 1, 5)).
+    ?assertEqual(<<"2222222">>, quadtree(0, 0, 7)),
+    ?assertEqual(<<"113113">>, quadtree(-1, -10, 6)),
+    ?assertEqual(<<"2221">>, quadtree(1, 1, 4)),
+    ?assertEqual(<<"22221">>, quadtree(1, 1, 5)).
 
 -endif.
