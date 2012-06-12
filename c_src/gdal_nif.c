@@ -300,6 +300,7 @@ static ERL_NIF_TERM gdal_nif_copyout_tile(ErlNifEnv* env, int argc, const ERL_NI
                                hImg->tilesize, hImg->tilesize, hImg->tilebands, 
                                GDT_Byte, NULL);
     // read dataset data
+    DEBUG("wxsz: %d, wysz: %d, bandscount: %d, CPLCalloc size=%zu\r\n", w.xsize, w.ysize, hImg->dataBandsCount, w.xsize * w.ysize * hImg->dataBandsCount);
     hTile->data = (GByte*)CPLCalloc(w.xsize * w.ysize * hImg->dataBandsCount, sizeof(*hTile->data));
 
     int panBandMap[hImg->dataBandsCount];
@@ -388,7 +389,7 @@ static ERL_NIF_TERM gdal_nif_build_tile(ErlNifEnv* env, int argc, const ERL_NIF_
         eErr = scale_query_to_tile(dsquery, dstile, hTile->options_resampling);
         GDALClose(dsquery);
         if (eErr == CE_Failure) {
-            return make_error_msg(env, "scale_query_to_tile");
+            return make_error_msg(env, "ScaleQueryTo_tile");
         }
     }
 

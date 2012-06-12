@@ -14,7 +14,6 @@
 %% export for eunit
 -export([
          coordinates_to_tile/4  % Returns tile for given coordinates
-         ,geo_query/3
         ]).
 
 -export_type([bound/0, bandregion/0, rasterinfo/0]).
@@ -49,9 +48,10 @@ behaviour_info(_Other) ->
 -spec copyout_tile_for(atom(), integer(), integer(), byte(), reference(), global_grid:rasterinfo()) -> {ok, reference()} | {error, string()}.
 copyout_tile_for(ProjMod, Ty, Tx, Tz, Img, RasterInfo) ->
     QuerySize = 4 * ?TILE_SIZE,
-    {MinX, MinY, MaxX, MaxY} = get_tile_coordinates_enclosure(ProjMod, Tx, Ty, Tz),
+    {MinX, MinY, MaxX, MaxY} = ProjMod:tile_bounds(Tx, Ty, Tz),
     Bound = {MinX, MaxY, MaxX, MinY},
     {Rb, Wb} = geo_query(RasterInfo, Bound, QuerySize),
+    lager:debug("tx: ~p, ty: ~p, tz: ~p, bound: ~p, rb: ~p, wb: ~p, querysize: ~p", [Tx, Ty, Tz, Bound, Rb, Wb, QuerySize]),
     gdal_nif:copyout_tile(Img, Rb, Wb).
 
 
@@ -189,10 +189,6 @@ get_img_coordinates_enclosure(RasterInfo) ->
     ExtY = OriginY + PixelSizeY * RasterYSize,
     {min(OriginX, ExtX), min(OriginY, ExtY), max(OriginX, ExtX), max(OriginY, ExtY)}.
 
-%% @doc get geospatial enclosure of a tile, in projection coordinates unit
-get_tile_coordinates_enclosure(ProjMod, Tx, Ty, Tz) ->
-    ProjMod:tile_bounds(Tx, Ty, Tz).
-
 
 -spec quadtree(TX::integer(), TY::integer(), Zoom::byte(), Quadtree::binary()) -> binary().
 quadtree(_TX, _TY, 0, Quadtree) -> 
@@ -233,7 +229,7 @@ geodetic_geo_query_test() ->
     {RasterXSize, RasterYSize} = {10933, 8982},
     {B0, B1, B2, B3} = Bound,
     Enclosure = {B0, B3, B2, B1},
-    {Rb, Wb} = global_grid:geo_query({OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize}, Enclosure, 0),
+    {Rb, Wb} = geo_query({OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize}, Enclosure, 0),
     io:format("rb: ~p, wb: ~p~n", [Rb, Wb]),
     ?assertEqual({9732, 8870, 342, 112}, Rb),
     ?assertEqual({0, 0, 342, 112}, Wb).

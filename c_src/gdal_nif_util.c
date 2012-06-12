@@ -113,7 +113,7 @@ CPLErr scale_query_to_tile(GDALDatasetH dsquery, GDALDatasetH dstile, const char
     DEBUG("scales down to the tile dataset... querysize: %d, tilesize: %d, tilebands: %d\r\n", querysize, tilesize, tilebands);
 
     if (options_resampling && strcmp("average", options_resampling) == 0) {
-        DEBUG("sample average\r\n");
+        DEBUG("Sample Average\r\n");
         for (int i = 1; i < tilebands + 1; ++i) {
             CPLErrorReset();
 
