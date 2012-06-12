@@ -9,6 +9,7 @@
          coordinates_to_pixels/3,
          zoom_for_pixelsize/1, 
          resolution/1, 
+         get_max_tilex/1,
          epsg_code/0]).
 
 %-define(EARTH_RADIUS, 6378137).
@@ -54,6 +55,9 @@ resolution(Zoom) ->
 -spec epsg_code() -> non_neg_integer().
 epsg_code() ->
     3785.
+
+get_max_tilex(Zoom) ->
+    trunc(math:pow(2, Zoom)) - 1.
 
 %% ----------------------- protected functions -----------------------
 %%

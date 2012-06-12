@@ -25,6 +25,7 @@ behaviour_info(callbacks) ->
                                 % given coordinates in differnent projection or tile profile
      {zoom_for_pixelsize, 1},   % Max scaledown zoom of the pyramid closest to the pixelSize
      {resolution, 1},           % Resolution for given zoom level
+     {get_max_tilex, 1},        % there is differnt calutaions of profiles
      {epsg_code, 0}];           % EPSG code for Projection 
 behaviour_info(_Other) ->
     undefined.
@@ -120,7 +121,8 @@ calc_zoomlevel_range(ProjMod, RasterInfo) ->
 calc_tminmax(ProjMod, {Ominx, Ominy, Omaxx, Omaxy} = _Enclosure, Zoom) ->
     {Tminx, Tminy} = coordinates_to_tile( ProjMod, Ominx, Ominy, Zoom ),
     {Tmaxx, Tmaxy} = coordinates_to_tile( ProjMod, Omaxx, Omaxy, Zoom ),
-    Z = trunc(math:pow(2, Zoom)) - 1,
+%    Z = trunc(math:pow(2, Zoom)) - 1,
+    Z = ProjMod:get_max_tilex(Zoom),
     EnclosureOfZoom = {
         max(0, Tminx), max(0, Tminy), 
         min(Z, Tmaxx), min(Z, Tmaxy)
@@ -222,13 +224,31 @@ bit_op(TX, TY, Mask) ->
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
+calc_tiles_enclosure_test() ->
+    {OriginX, OriginY} = {117.0439031173947, 35.138356923616534},
+    {PixelSizeX, PixelSizeY} = { 2.0080973914208664e-06, -2.0080973914208664e-06},
+    {RasterXSize, RasterYSize} = {10933, 8982},
+    RasterInfo = {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize},
+    ProjMod = global_geodetic,
+    {MaxZoom, Enclosure} = calc_tiles_enclosure(ProjMod, RasterInfo),
+    ?assertEqual({432601, 182219, 432633, 182245}, Enclosure).
+
+calc_zoomlevel_range_test() ->
+    {OriginX, OriginY} = {117.0439031173947, 35.138356923616534},
+    {PixelSizeX, PixelSizeY} = { 2.0080973914208664e-06, -2.0080973914208664e-06},
+    {RasterXSize, RasterYSize} = {10933, 8982},
+    RasterInfo = {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize},
+
+    {_Tminz, Tmaxz} = calc_zoomlevel_range(global_geodetic, RasterInfo),
+    ?assertEqual(18, Tmaxz).
+
 geodetic_geo_query_test() ->
     {OriginX, OriginY} = {117.0439031173947, 35.138356923616534},
     {PixelSizeX, PixelSizeY} = { 2.0080973914208664e-06, -2.0080973914208664e-06},
-    Bound = {117.06344604492188, 35.11985778808594, 117.06413269042969, 35.12054443359375},
     {RasterXSize, RasterYSize} = {10933, 8982},
+    Bound = {117.06344604492188, 35.11985778808594, 117.06413269042969, 35.12054443359375},
     {B0, B1, B2, B3} = Bound,
-    Enclosure = {B0, B3, B2, B1},
+    Enclosure = {117.06344604492188,35.12054443359375,117.06413269042969,35.11985778808594},
     {Rb, Wb} = geo_query({OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize}, Enclosure, 0),
     io:format("rb: ~p, wb: ~p~n", [Rb, Wb]),
     ?assertEqual({9732, 8870, 342, 112}, Rb),

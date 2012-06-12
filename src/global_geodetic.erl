@@ -9,6 +9,7 @@
          coordinates_to_pixels/3,
          zoom_for_pixelsize/1, 
          resolution/1, 
+         get_max_tilex/1,
          epsg_code/0]).
 
 
@@ -40,6 +41,9 @@ resolution(Zoom) ->
 epsg_code() ->
     4326.
 
+get_max_tilex(Zoom) ->
+    trunc(math:pow(2, Zoom + 1)) - 1.
+
 %% @doc Maximal scaledown zoom of the pyramid closest to the pixelSize.
 -spec zoom_for_pixelsize(PixelSize::float()) -> byte().
 zoom_for_pixelsize(PixelSize) ->
@@ -67,7 +71,9 @@ tile_bounds_test() ->
     math_utils:swne_assert({-178.2421875, -86.484375, -178.06640625, -86.30859375}, 
                             tile_bounds(10, 20, 10)),
     math_utils:swne_assert({117.06344604492188, 35.11985778808594, 117.06413269042969, 35.12054443359375}, 
-                            tile_bounds(432630,182219,18)).
+                            tile_bounds(432630,182219,18)),
+    math_utils:swne_assert({117.06619262695313,35.11985778808594,117.06687927246094,35.12054443359375}, 
+                            tile_bounds(432634,182219,18)).
 
 resolution_test() ->
     ?assertEqual(0.703125, resolution(0)),
