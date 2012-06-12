@@ -90,7 +90,10 @@ tile_bounds_test() ->
         tile_bounds(20, 10, 12)),
     math_utils:swne_assert(
         {-20037508.342789244, -20037508.342789244, 20037508.342789244, 20037508.342789244}, 
-        tile_bounds(0, 0, 0)).
+        tile_bounds(0, 0, 0)),
+    math_utils:swne_assert(
+        {46100394.751242355, 7819049.371403821, 46100547.62529893, 7819202.245460391}, 
+        tile_bounds(432630,182219,18)).
 
 zoom_for_pixelsize_test() ->
     ?assertEqual(0, zoom_for_pixelsize(1000000)),

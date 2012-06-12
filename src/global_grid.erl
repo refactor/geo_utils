@@ -14,6 +14,7 @@
 %% export for eunit
 -export([
          coordinates_to_tile/4  % Returns tile for given coordinates
+         ,geo_query/3
         ]).
 
 -export_type([bound/0, bandregion/0, rasterinfo/0]).
@@ -225,12 +226,24 @@ bit_op(TX, TY, Mask) ->
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
-geo_quert_test() ->
+geodetic_geo_query_test() ->
+    {OriginX, OriginY} = {117.0439031173947, 35.138356923616534},
+    {PixelSizeX, PixelSizeY} = { 2.0080973914208664e-06, -2.0080973914208664e-06},
+    Bound = {117.06344604492188, 35.11985778808594, 117.06413269042969, 35.12054443359375},
+    {RasterXSize, RasterYSize} = {10933, 8982},
+    {B0, B1, B2, B3} = Bound,
+    Enclosure = {B0, B3, B2, B1},
+    {Rb, Wb} = global_grid:geo_query({OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize}, Enclosure, 0),
+    io:format("rb: ~p, wb: ~p~n", [Rb, Wb]),
+    ?assertEqual({9732, 8870, 342, 112}, Rb),
+    ?assertEqual({0, 0, 342, 112}, Wb).
+
+mercator_geo_query_test() ->
     {OriginX, OriginY} = {13024084.000533571, 4184269.256414418},
     {PixelSizeX, PixelSizeY} = {0.24473611762142541, -0.24473611762142541},
     {RasterXSize, RasterYSize} = {60352, 62961},
-    MinMaxBound = {865067, 633770, 865453, 633367},
-    {Rb, Wb} = geo_query({OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize}, MinMaxBound, 0),
+    Enclosure = {865067, 633770, 865453, 633367},
+    {Rb, Wb} = geo_query({OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize}, Enclosure, 0),
     ?assertEqual({0, 14507459, -49680575, -14444498}, Rb),
     ?assertEqual({49682152, 0, -49680575, -14444498}, Wb).
 

@@ -65,7 +65,9 @@ tile_bounds_test() ->
     math_utils:swne_assert({-180.0, -90.0, 0.0, 90.0}, 
                             tile_bounds(0, 0, 0)),
     math_utils:swne_assert({-178.2421875, -86.484375, -178.06640625, -86.30859375}, 
-                            tile_bounds(10, 20, 10)).
+                            tile_bounds(10, 20, 10)),
+    math_utils:swne_assert({117.06344604492188, 35.11985778808594, 117.06413269042969, 35.12054443359375}, 
+                            tile_bounds(432630,182219,18)).
 
 resolution_test() ->
     ?assertEqual(0.703125, resolution(0)),
