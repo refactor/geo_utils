@@ -60,7 +60,7 @@ behaviour_info(_Other) ->
 
 
 -spec copyout_tile_for(atom(), integer(), integer(), byte(), reference(), global_grid:rasterinfo()) -> {ok, reference()} | {error, string()}.
-copyout_tile_for(ProjMod, Ty, Tx, Tz, Img, RasterInfo) ->
+copyout_tile_for(ProjMod, Tx, Ty, Tz, Img, RasterInfo) ->
     QuerySize = 4 * ?TILE_SIZE,
     {MinX, MinY, MaxX, MaxY} = ProjMod:tile_bounds(Tx, Ty, Tz),
     Bound = {MinX, MaxY, MaxX, MinY},
