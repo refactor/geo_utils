@@ -1,3 +1,16 @@
+%%% -------------------------------------------------------------------
+%%% @doc Purpose:  Convert a raster into TMS (Tile Map Service) tiles in a directory or 
+%%%              something else as fast as possible.
+%%%           - support of global tiles (Spherical Mercator) for compatibility
+%%%               with interactive web maps such as Google Maps
+%%% 
+%%%  this is a clone implementent from gdal2tiles.py, but use erlang/OTP do some parallel 
+%%%  work for the speed
+%%%  gdal2tiles.py is the work of Klokan Petr Pridal, klokan at klokan dot cz
+%%%      Web:      http://www.klokan.cz/projects/gdal2tiles/
+%%% @end
+%%% -------------------------------------------------------------------
+
 -module(global_grid).
 
 -include("global_grid.hrl").
@@ -121,7 +134,6 @@ calc_zoomlevel_range(ProjMod, RasterInfo) ->
 calc_tminmax(ProjMod, {Ominx, Ominy, Omaxx, Omaxy} = _Enclosure, Zoom) ->
     {Tminx, Tminy} = coordinates_to_tile( ProjMod, Ominx, Ominy, Zoom ),
     {Tmaxx, Tmaxy} = coordinates_to_tile( ProjMod, Omaxx, Omaxy, Zoom ),
-%    Z = trunc(math:pow(2, Zoom)) - 1,
     Z = ProjMod:get_max_tilex(Zoom),
     EnclosureOfZoom = {
         max(0, Tminx), max(0, Tminy), 
@@ -203,19 +215,19 @@ quadtree(TX, TY, Zoom, Quadtree) ->
 -spec bit_op(TX::integer(), TY::integer(), Mask::byte()) -> 0 | 1 | 2 | 3.
 bit_op(TX, TY, Mask) ->
     R1 = 
-    if
-        TX band Mask =/= 0 ->
-            1;
-        true ->
-            0
-    end,
+        if
+            TX band Mask =/= 0 ->
+                1;
+            true ->
+                0
+        end,
     R2 =
-    if
-        TY band Mask =/= 0 ->
-            2;
-        true ->
-            0
-    end,
+        if
+            TY band Mask =/= 0 ->
+                2;
+            true ->
+                0
+        end,
     R1 + R2.
 
 %% ===================================================================

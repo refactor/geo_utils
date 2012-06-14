@@ -1,6 +1,40 @@
 %% @doc TileMap profile: global-geodetic
 %% which is base on EPSG:4326
 %%
+%% ------------------------------------------------------------------------------------------------
+%%	TMS Global Geodetic Profile
+%% ------------------------------------------------------------------------------------------------
+%%
+%% Functions necessary for generation of global tiles in Plate Carre projection,
+%%	EPSG:4326, "unprojected profile".
+%%
+%%	Such tiles are compatible with Google Earth (as any other EPSG:4326 rasters)
+%%	and you can overlay the tiles on top of OpenLayers base map.
+%%	
+%%	Pixel and tile coordinates are in TMS notation (origin [0,0] in bottom-left).
+%%
+%%	What coordinate conversions do we need for TMS Global Geodetic tiles?
+%%
+%%	  Global Geodetic tiles are using geodetic coordinates (latitude,longitude)
+%%	  directly as planar coordinates XY (it is also called Unprojected or Plate
+%%	  Carre). We need only scaling to pixel pyramid and cutting to tiles.
+%%	  Pyramid has on top level two tiles, so it is not square but rectangle.
+%%	  Area [-180,-90,180,90] is scaled to 512x256 pixels.
+%%	  TMS has coordinate origin (for pixels and tiles) in bottom-left corner.
+%%	  Rasters are in EPSG:4326 and therefore are compatible with Google Earth.
+%%
+%%	     LatLon      <->      Pixels      <->     Tiles     
+%%
+%%	 WGS84 coordinates   Pixels in pyramid  Tiles in pyramid
+%%	     lat/lon         XY pixels Z zoom      XYZ from TMS 
+%%	    EPSG:4326                                           
+%%	     .----.                ----                         
+%%	    /      \     <->    /--------/    <->      TMS      
+%%	    \      /         /--------------/                   
+%%	     -----        /--------------------/                
+%%	   WMS, KML    Web Clients, Google Earth  TileMapService
+%% ------------------------------------------------------------------------------------------------
+
 -module(global_geodetic).
 -behaviour(global_grid).
 -include("global_grid.hrl").
