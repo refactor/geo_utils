@@ -300,15 +300,16 @@ static ERL_NIF_TERM gdal_nif_copyout_tile(ErlNifEnv* env, int argc, const ERL_NI
                                hImg->tilesize, hImg->tilesize, hImg->tilebands, 
                                GDT_Byte, NULL);
     // read dataset data
-    DEBUG("wxsz: %d, wysz: %d, bandscount: %d, CPLCalloc size=%zu\r\n", w.xsize, w.ysize, hImg->dataBandsCount, w.xsize * w.ysize * hImg->dataBandsCount);
-    hTile->data = (GByte*)CPLCalloc(w.xsize * w.ysize * hImg->dataBandsCount, sizeof(*hTile->data));
+    int datasz = w.xsize * w.ysize;
+    DEBUG("wxsz: %d, wysz: %d, bandscount: %d, CPLCalloc size=%zu\r\n", w.xsize, w.ysize, hImg->dataBandsCount, datasz * hImg->dataBandsCount);
+    hTile->data = (GByte*)CPLCalloc(datasz * hImg->dataBandsCount, sizeof(*hTile->data));
 
     int panBandMap[hImg->dataBandsCount];
     fill_pband_list(hImg->dataBandsCount, panBandMap);
     CPLErr eErr = GDALDatasetRasterIO(ds, GF_Read, 
-                              r.xoffset, r.yoffset, r.xsize, r.ysize, hTile->data, 
-                              w.xsize, w.ysize, GDT_Byte, hImg->dataBandsCount, panBandMap, 
-                              0, 0, 0);
+                                      r.xoffset, r.yoffset, r.xsize, r.ysize, hTile->data, 
+                                      w.xsize, w.ysize, GDT_Byte, hImg->dataBandsCount, panBandMap, 
+                                      0, 0, 0);
     if (eErr == CE_Failure) {
 //        free_tile(hTile);
         char buf[128] = "DatasetRasterIO read failed: ";
@@ -318,7 +319,7 @@ static ERL_NIF_TERM gdal_nif_copyout_tile(ErlNifEnv* env, int argc, const ERL_NI
     }
 
     // read dataset alpha 
-    hTile->alpha = (GByte*)CPLCalloc(w.xsize * w.ysize, sizeof(*hTile->alpha));
+    hTile->alpha = (GByte*)CPLCalloc(datasz, sizeof(*hTile->alpha));
     eErr = GDALRasterIO(hImg->alphaBand, GF_Read, 
                         r.xoffset, r.yoffset, r.xsize, r.ysize, 
                         hTile->alpha, w.xsize, w.ysize, 
@@ -421,6 +422,7 @@ static ERL_NIF_TERM gdal_nif_save_tile(ErlNifEnv* env, int argc, const ERL_NIF_T
     return ATOM_OK;
 }
 
+#define FILENAME_LEN 64
 static ERL_NIF_TERM gdal_nif_tile_to_binary(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     gdal_tile_handle* ti;
@@ -429,11 +431,11 @@ static ERL_NIF_TERM gdal_nif_tile_to_binary(ErlNifEnv* env, int argc, const ERL_
     }
 
     ErlNifBinary tilefilenameBin;
-    if (!enif_inspect_iolist_as_binary(env, argv[1], &tilefilenameBin) || (tilefilenameBin.size >= 64)) {
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &tilefilenameBin) || (tilefilenameBin.size >= FILENAME_LEN)) {
         return enif_make_badarg(env);
     }
 
-    char tilefilename[64] = "";
+    char tilefilename[FILENAME_LEN] = "";
     memcpy(tilefilename, tilefilenameBin.data, tilefilenameBin.size);
     DEBUG("passed tilefilename: %s\r\n", tilefilename);
 
