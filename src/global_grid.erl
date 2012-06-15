@@ -17,11 +17,12 @@
 
 -export([behaviour_info/1]).
 
-%% 
+%% API
+-export([geo_query/3,
+         get_img_coordinates_enclosure/1, calc_tminmax/3,
+         quadtree/3]).
+
 -export([zoom_for_pixelsize/3, 
-         quadtree/3,
-         copyout_tile_for/6,
-         calc_tiles_enclosure/2,
          pixels_to_tile/2]).
 
 
@@ -70,18 +71,6 @@ behaviour_info(_Other) ->
         RasterYSize :: non_neg_integer()}.
 
 
--spec copyout_tile_for(atom(), integer(), integer(), byte(), reference(), rasterinfo()) -> 
-    {ok, reference()} | {error, string()}.
-copyout_tile_for(ProjMod, Tx, Ty, Tz, Img, RasterInfo) ->
-    QuerySize = 4 * ?TILE_SIZE,
-    {MinX, MinY, MaxX, MaxY} = ProjMod:tile_bounds(Tx, Ty, Tz),
-    Bound = {MinX, MaxY, MaxX, MinY},
-    {Rb, Wb} = geo_query(RasterInfo, Bound, QuerySize),
-    lager:debug("tx: ~p, ty: ~p, tz: ~p, bound: ~p, rb: ~p, wb: ~p, querysize: ~p", 
-                [Tx, Ty, Tz, Bound, Rb, Wb, QuerySize]),
-    gdal_nif:copyout_tile(Img, Rb, Wb).
-
-
 %% @doc For given dataset and query in cartographic coordinates returns parameters for ReadRaster() in 
 %% raster coordinates and x/y shifts (for border tiles). If the querysize is not given, the extent is 
 %% returned in the native resolution of dataset ds.
@@ -119,16 +108,6 @@ cfi(I) ->
         0 -> 0;  % We don't want to scale up
         _ -> I - 1
     end.
-
-%% @doc calculate the tiles enclosure of the img Raster in a specified zoom level
-%% the zoom level is dicided by the img precision which is defined in RasterInfo
-%% and used for base_tiles of the img
--spec calc_tiles_enclosure(atom(), rasterinfo()) -> {byte(), enclosure()}.
-calc_tiles_enclosure(ProjMod, RasterInfo) ->
-    {_Tminz, Tmaxz} = calc_zoomlevel_range(ProjMod, RasterInfo),
-    SpatialEnclosure = get_img_coordinates_enclosure(RasterInfo),
-    TileEnclosure = calc_tminmax(ProjMod, SpatialEnclosure, Tmaxz),
-    {Tmaxz, TileEnclosure}.
 
 
 %% @doc Get the minimal and maximal zoom level
@@ -247,15 +226,6 @@ bit_op(TX, TY, Mask) ->
 %% EUnit tests
 %% =============================================================================
 -ifdef(TEST).
-
-calc_tiles_enclosure_test() ->
-    {OriginX, OriginY} = {117.0439031173947, 35.138356923616534},
-    {PixelSizeX, PixelSizeY} = { 2.0080973914208664e-06, -2.0080973914208664e-06},
-    {RasterXSize, RasterYSize} = {10933, 8982},
-    RasterInfo = {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize},
-    ProjMod = global_geodetic,
-    {MaxZoom, Enclosure} = calc_tiles_enclosure(ProjMod, RasterInfo),
-    ?assertEqual({432601, 182219, 432633, 182245}, Enclosure).
 
 calc_zoomlevel_range_test() ->
     {OriginX, OriginY} = {117.0439031173947, 35.138356923616534},
