@@ -1,9 +1,9 @@
 %% @doc TileMap profile: global-mercator
 %% which is base on EPSG:3785 ( = EPSG:900913)
 %%
-%% ------------------------------------------------------------------------------------------------
+%% -----------------------------------------------------------------------------
 %%      TMS Global Mercator Profile
-%% ------------------------------------------------------------------------------------------------
+%% -----------------------------------------------------------------------------
 %%
 %%	Functions necessary for generation of tiles in Spherical Mercator projection,
 %%	EPSG:900913 (EPSG:gOOglE, Google Maps Global Mercator), EPSG:3785, OSGEO:41001.
@@ -16,10 +16,10 @@
 %%
 %%	What coordinate conversions do we need for TMS Global Mercator tiles::
 %%
-%%	     LatLon      <->       Meters      <->     Pixels    <->       Tile     
+%%	     LonLat      <->       Meters      <->     Pixels    <->       Tile     
 %%
 %%	 WGS84 coordinates   Spherical Mercator  Pixels in pyramid  Tiles in pyramid
-%%	     lat/lon            XY in metres     XY pixels Z zoom      XYZ from TMS 
+%%	     lon/lat            XY in metres     XY pixels Z zoom      XYZ from TMS 
 %%	    EPSG:4326           EPSG:900913                                         
 %%	     .----.              ---------               --                TMS      
 %%	    /      \     <->     |       |     <->     /----/    <->      Google    
@@ -51,9 +51,9 @@
 %%	  Microsoft is referencing tiles by a QuadTree name, defined on the website:
 %%	  http://msdn2.microsoft.com/en-us/library/bb259689.aspx
 %%
-%%	The lat/lon coordinates are using WGS84 datum, yeh?
+%%	The lon/lat coordinates are using WGS84 datum, yeh?
 %%
-%%	  Yes, all lat/lon we are mentioning should use WGS84 Geodetic Datum.
+%%	  Yes, all lon/lat we are mentioning should use WGS84 Geodetic Datum.
 %%	  Well, the web clients like Google Maps are projecting those coordinates by
 %%	  Spherical Mercator, so in fact lat/lon coordinates on sphere are treated as if
 %%	  the were on the WGS84 ellipsoid.
@@ -74,7 +74,7 @@
 %%	  More info at http://spatialreference.org/ref/user/google-projection/
 %%	  The same projection is degined as EPSG:3785. WKT definition is in the official
 %%	  EPSG database.
-%% ------------------------------------------------------------------------------------------------
+%% -----------------------------------------------------------------------------
 
 -module(global_mercator).
 -behaviour(global_grid).
@@ -105,9 +105,9 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
-%% ===================================================================
+%% =============================================================================
 %% callback functions
-%% ===================================================================
+%% =============================================================================
 
 %% @doc Returns bounds of the given tile in EPSG:3785 or EPSG:900913 coordinates
 -spec tile_bounds(TX::integer(), TY::integer(), Zoom::byte()) -> global_grid:bound().
@@ -126,7 +126,7 @@ zoom_for_pixelsize(PixelSize) ->
 resolution(Zoom) ->
     ?INITIAL_RESOLUTION / math:pow(2, Zoom).
 
-%% @doc EPSG:3785
+%% @doc Spherical Mercator, EPSG:3785
 -spec epsg_code() -> non_neg_integer().
 epsg_code() ->
     3785.
@@ -134,7 +134,7 @@ epsg_code() ->
 get_max_tilex(Zoom) ->
     trunc(math:pow(2, Zoom)) - 1.
 
-%% ----------------------- protected functions -----------------------
+%% ----------------------------- protected functions ---------------------------
 %%
 %% @doc Converts EPSG:3785 to pyramid pixel coordinates in given zoom level
 %% MetersToPixels, for EPSG:3785
@@ -146,9 +146,9 @@ coordinates_to_pixels(MX, MY, Zoom) ->
     PY = (MY + ?ORIGIN_SHIFT) / Resolution,
     {PX, PY}.
 
-%% ===================================================================
+%% =============================================================================
 %% private functions
-%% ===================================================================
+%% =============================================================================
 
 %% @doc Converts pixel coordinates in given zoom level of pyramid to EPSG:3785 or EPSG:900913
 -spec pixels_to_meters(PX::integer(), PY::integer(), Zoom::byte()) -> {float(), float()}.
@@ -158,9 +158,9 @@ pixels_to_meters(PX, PY, Zoom) ->
     MY = PY * Resolution - ?ORIGIN_SHIFT,
     {MX, MY}.
 
-%% ===================================================================
+%% =============================================================================
 %% EUnit tests
-%% ===================================================================
+%% =============================================================================
 -ifdef(TEST).
 
 tile_bounds_test() ->
@@ -173,6 +173,9 @@ tile_bounds_test() ->
     math_utils:swne_assert(
         {46100394.751242355, 7819049.371403821, 46100547.62529893, 7819202.245460391}, 
         tile_bounds(432630,182219,18)).
+
+resolution_test() ->
+    ?assertEqual(78271.51696402048, resolution(1)).
 
 zoom_for_pixelsize_test() ->
     ?assertEqual(0, zoom_for_pixelsize(1000000)),

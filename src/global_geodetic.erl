@@ -1,9 +1,9 @@
 %% @doc TileMap profile: global-geodetic
 %% which is base on EPSG:4326
 %%
-%% ------------------------------------------------------------------------------------------------
+%% -----------------------------------------------------------------------------
 %%	TMS Global Geodetic Profile
-%% ------------------------------------------------------------------------------------------------
+%% -----------------------------------------------------------------------------
 %%
 %% Functions necessary for generation of global tiles in Plate Carre projection,
 %%	EPSG:4326, "unprojected profile".
@@ -33,7 +33,7 @@
 %%	    \      /         /--------------/                   
 %%	     -----        /--------------------/                
 %%	   WMS, KML    Web Clients, Google Earth  TileMapService
-%% ------------------------------------------------------------------------------------------------
+%% -----------------------------------------------------------------------------
 
 -module(global_geodetic).
 -behaviour(global_grid).
@@ -51,9 +51,9 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
-%% ===================================================================
+%% =============================================================================
 %% callback functions
-%% ===================================================================
+%% =============================================================================
 
 %% @doc Returns bounds of the given tile
 -spec tile_bounds(TX::integer(), TY::integer(), Zoom::byte()) -> global_grid:bound().
@@ -66,11 +66,12 @@ tile_bounds(TX, TY, Zoom) ->
     {MinX, MinY, MaxX, MaxY}.
 
 %% @doc Resolution (arc/pixel) for given zoom level (measured at Equator)
+%%  provide <TileSet>s with units-per-pixel
 -spec resolution(Zoom::byte()) -> float().
 resolution(Zoom) ->
     180.0 / ?TILE_SIZE / math:pow(2, Zoom).
 
-%% @doc EPSG:4326
+%% @doc WGS84, EPSG:4326
 -spec epsg_code() -> non_neg_integer().
 epsg_code() ->
     4326.
@@ -83,20 +84,20 @@ get_max_tilex(Zoom) ->
 zoom_for_pixelsize(PixelSize) ->
     global_grid:zoom_for_pixelsize(fun ?MODULE:resolution/1, PixelSize, 0).
 
-%% ----------------------- protected functions -----------------------
+%% ---------------------------- protected functions ----------------------------
 %%
-%% @doc Converts lat/lon to pixel coordinates in given zoom of the EPSG:4326 pyramid"
+%% @doc Converts lon/lat to pixel coordinates in given zoom of the EPSG:4326 pyramid"
 %% LatLonToPixels, for EPSG:4326
 %% This is a intermediate function, called by coordinates_to_tile
-coordinates_to_pixels(Lat, Lon, Zoom) ->
+coordinates_to_pixels(Longitude, Latitude, Zoom) ->
     Res = resolution(Zoom),
-    Px = (180.0 + Lat) / Res,
-    Py = (90.0 + Lon) / Res,
+    Px = (180.0 + Longitude) / Res,
+    Py = (90.0 + Latitude) / Res,
     {Px, Py}.
 
-%% ===================================================================
+%% =============================================================================
 %% EUnit tests
-%% ===================================================================
+%% =============================================================================
 -ifdef(TEST).
 
 tile_bounds_test() ->
@@ -113,6 +114,7 @@ resolution_test() ->
     ?assertEqual(0.703125, resolution(0)),
     ?assertEqual(0.3515625, resolution(1)),
     ?assertEqual(0.17578125, resolution(2)),
+    ?assertEqual(0.087890625, resolution(3)),
     ?assertEqual(0.0006866455078125, resolution(10)).
 
 zoom_for_pixelsize_test() ->

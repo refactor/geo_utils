@@ -1,15 +1,15 @@
-%%% -------------------------------------------------------------------
-%%% @doc Purpose:  Convert a raster into TMS (Tile Map Service) tiles in a directory or 
-%%%              something else as fast as possible.
+%%% ----------------------------------------------------------------------------
+%%% @doc Purpose:  Convert a raster into TMS (Tile Map Service) tiles in a 
+%%%             directory or something else as fast as possible.
 %%%           - support of global tiles (Spherical Mercator) for compatibility
 %%%               with interactive web maps such as Google Maps
 %%% 
-%%%  this is a clone implementent from gdal2tiles.py, but use erlang/OTP do some parallel 
-%%%  work for the speed
+%%%  this is a clone implementent from gdal2tiles.py, but use erlang/OTP do some
+%%%             parallel work for the speed
 %%%  gdal2tiles.py is the work of Klokan Petr Pridal, klokan at klokan dot cz
 %%%      Web:      http://www.klokan.cz/projects/gdal2tiles/
 %%% @end
-%%% -------------------------------------------------------------------
+%%% ----------------------------------------------------------------------------
 
 -module(global_grid).
 
@@ -24,10 +24,14 @@
          calc_tiles_enclosure/2,
          pixels_to_tile/2]).
 
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
 %% export for eunit
 -export([
          coordinates_to_tile/4  % Returns tile for given coordinates
         ]).
+-endif.
 
 -export_type([bound/0, bandregion/0, rasterinfo/0]).
 
@@ -49,23 +53,32 @@ behaviour_info(_Other) ->
 
 -type enclosure() :: {MinX::float(), MinY::float(), MaxX::float(), MaxY::float()}.
 
-%% XOffset: the pixel offset to the top left corner of the region of the band to be accessed
-%% YOffset: The line offset to the top left corner of the region of the band to be accessed. 
-%% XSize: The width of the region of the band to be accessed in pixels.
-%% YSize: The height of the region of the band to be accessed in lines
--type bandregion() :: {XOffset::non_neg_integer(), YOffset::non_neg_integer(), XSize::non_neg_integer(), YSize::non_neg_integer()}.
+%% the region of the band
+-type bandregion() :: {
+        XOffset::non_neg_integer(), % pixel offset to the top left corner of the region of the band
+        YOffset::non_neg_integer(), % line offset to the top left corner of the region of the band
+        XSize::non_neg_integer(),   % width of the region of the band to be accessed in pixels
+        YSize::non_neg_integer()}.  % height of the region of the band to be accessed in lines
 
 %% {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize},
--type rasterinfo() :: {float(), float(), float(), float(), non_neg_integer(), non_neg_integer()}.
+-type rasterinfo() :: {
+        OriginX     :: float(), 
+        OriginY     :: float(), 
+        PixelSizeX  :: float(), 
+        PixelSizeY  :: float(), 
+        RasterXSize :: non_neg_integer(), 
+        RasterYSize :: non_neg_integer()}.
 
 
--spec copyout_tile_for(atom(), integer(), integer(), byte(), reference(), global_grid:rasterinfo()) -> {ok, reference()} | {error, string()}.
+-spec copyout_tile_for(atom(), integer(), integer(), byte(), reference(), rasterinfo()) -> 
+    {ok, reference()} | {error, string()}.
 copyout_tile_for(ProjMod, Tx, Ty, Tz, Img, RasterInfo) ->
     QuerySize = 4 * ?TILE_SIZE,
     {MinX, MinY, MaxX, MaxY} = ProjMod:tile_bounds(Tx, Ty, Tz),
     Bound = {MinX, MaxY, MaxX, MinY},
     {Rb, Wb} = geo_query(RasterInfo, Bound, QuerySize),
-    lager:debug("tx: ~p, ty: ~p, tz: ~p, bound: ~p, rb: ~p, wb: ~p, querysize: ~p", [Tx, Ty, Tz, Bound, Rb, Wb, QuerySize]),
+    lager:debug("tx: ~p, ty: ~p, tz: ~p, bound: ~p, rb: ~p, wb: ~p, querysize: ~p", 
+                [Tx, Ty, Tz, Bound, Rb, Wb, QuerySize]),
     gdal_nif:copyout_tile(Img, Rb, Wb).
 
 
@@ -86,9 +99,9 @@ geo_query({OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize}, 
     {{NewRx, NewRy, ResRxsize, ResRysize}, {NewWx, NewWy, ResWxsize, ResWysize}}.
 
 
-%% ===================================================================
+%% =============================================================================
 %% protected functions
-%% ===================================================================
+%% =============================================================================
 -spec zoom_for_pixelsize(Resolution::fun(), PixelSize::float(), I::byte()) -> byte().
 zoom_for_pixelsize(Resolution, PixelSize, I) ->
     R = Resolution(I),
@@ -155,9 +168,9 @@ quadtree(TX, TY, Zoom) ->
     Ty = trunc(math:pow(2, Zoom) - 1 - TY),
     quadtree(TX, Ty, Zoom, <<>>).
 
-%% ===================================================================
+%% =============================================================================
 %% private functions
-%% ===================================================================
+%% =============================================================================
 
 %% @doc Returns coordinates of the tile covering region in pixel coordinates
 pixels_to_tile(Px, Py) ->
@@ -230,11 +243,10 @@ bit_op(TX, TY, Mask) ->
         end,
     R1 + R2.
 
-%% ===================================================================
+%% =============================================================================
 %% EUnit tests
-%% ===================================================================
+%% =============================================================================
 -ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
 
 calc_tiles_enclosure_test() ->
     {OriginX, OriginY} = {117.0439031173947, 35.138356923616534},
