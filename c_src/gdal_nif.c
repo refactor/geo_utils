@@ -94,7 +94,7 @@ static ErlNifFunc nif_funcs[] =
     {"copyout_rawtile", 3, gdal_nif_copyout_rawtile},
     {"build_tile", 1, gdal_nif_build_tile},
     {"save_tile", 2, gdal_nif_save_tile},
-    {"tile_to_binary", 2, gdal_nif_tile_to_binary},
+    {"tile_to_binary", 3, gdal_nif_tile_to_binary},
     {"get_meta", 1, gdal_nif_get_meta}
 };
 
@@ -448,11 +448,16 @@ static ERL_NIF_TERM gdal_nif_tile_to_binary(ErlNifEnv* env, int argc, const ERL_
         return enif_make_badarg(env);
     }
 
+    char rasterFormatCode[16] = "";
+    if (enif_get_string(env, argv[2], rasterFormatCode, 16, ERL_NIF_LATIN1) <= 0) {
+        return enif_make_badarg(env);
+    }
+
     char tilefilename[FILENAME_LEN] = "";
     memcpy(tilefilename, tilefilenameBin.data, tilefilenameBin.size);
     DEBUG("passed tilefilename: %s\r\n", tilefilename);
 
-    GDALDriverH hOutDriver = GDALGetDriverByName("PNG");
+    GDALDriverH hOutDriver = GDALGetDriverByName(rasterFormatCode);
     if ( ! ti->options_resampling || (strcmp("antialias", ti->options_resampling) != 0) ) {
         char vsimemFileName[128] = "";
         sprintf(vsimemFileName, "/vsimem/%s", tilefilename);
