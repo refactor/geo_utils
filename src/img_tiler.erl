@@ -13,7 +13,7 @@
 
 %% API
 -export([scan_img/0,
-         copyout_tile_for/3
+         copyout_rawtile_for/3
         ]).
 
 -record(tile_position, {current_tile_x :: integer(), 
@@ -33,16 +33,16 @@ scan_img() ->
                                             tile_enclosure = TileEnclosure})
                end}.
 
--spec copyout_tile_for(integer(), integer(), byte()) -> 
+-spec copyout_rawtile_for(integer(), integer(), byte()) -> 
     {ok, reference()} | {error, string()}.
-copyout_tile_for(Tx, Ty, Tz) ->
+copyout_rawtile_for(Tx, Ty, Tz) ->
     QuerySize = 4 * ?TILE_SIZE,
     {MinX, MinY, MaxX, MaxY} = ProfileMod:tile_bounds(Tx, Ty, Tz),
     Bound = {MinX, MaxY, MaxX, MinY},
     {Rb, Wb} = global_grid:geo_query(RasterInfo, Bound, QuerySize),
     lager:debug("tx: ~p, ty: ~p, tz: ~p, bound: ~p, rb: ~p, wb: ~p, querysize: ~p", 
                 [Tx, Ty, Tz, Bound, Rb, Wb, QuerySize]),
-    gdal_nif:copyout_tile(RasterImg, Rb, Wb).
+    gdal_nif:copyout_rawtile(RasterImg, Rb, Wb).
 
 
 %% =============================================================================

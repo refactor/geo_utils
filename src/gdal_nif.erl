@@ -5,7 +5,7 @@
          create_warped_vrt/2,
          close_img/1]).
 
--export([copyout_tile/3,
+-export([copyout_rawtile/3,
          build_tile/1,
          tile_to_binary/2,
          save_tile/2]).
@@ -48,14 +48,16 @@ close_img(_Img) ->
 get_meta(_ImgRef) ->
     ?nif_stub.
 
--spec copyout_tile(reference(), global_grid:bandregion(), global_grid:bandregion()) -> {ok, reference()} | {error, string()}.
-copyout_tile(_Img, _R, _W) ->
+-spec copyout_rawtile(reference(), global_grid:bandregion(), global_grid:bandregion()) -> {ok, reference()} | {error, string()}.
+copyout_rawtile(_Img, _R, _W) ->
     ?nif_stub.
 
--spec build_tile(Tile::reference()) -> ok | {error, string()}.
-build_tile(_Tile) ->
+%% @doc build a Memory GDALDataset for tile
+-spec build_tile(RawTile::reference()) -> {ok, reference()} | {error, string()}.
+build_tile(_RawTile) ->
     ?nif_stub.
 
+%% @doc Depracated
 -spec save_tile(Tile::reference(), TileFileName::string()) -> ok | {error, string()}.
 save_tile(_Tile, _TileFileName) ->
     ?nif_stub.
