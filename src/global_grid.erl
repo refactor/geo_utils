@@ -20,7 +20,7 @@
 %% API
 -export([geo_query/3,
          get_img_coordinates_enclosure/1, calc_tminmax/3,
-         quadtree/3]).
+         quadtree/1]).
 
 -export([zoom_for_pixelsize/3, 
          pixels_to_tile/2]).
@@ -37,7 +37,8 @@
 -export_type([bound/0, 
               enclosure/1,
               bandregion/0, 
-              rasterinfo/0]).
+              tile_info/0,
+              img_info/0]).
 
 -spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
 behaviour_info(callbacks) ->
@@ -53,9 +54,15 @@ behaviour_info(_Other) ->
 
 
 %% {LeftTopX, LeftTopY, RightBottomX, RightBottomY} = Bound
--type bound() :: {LeftTopX::float(), LeftTopY::float(), RightBottomX::float(), RightBottom::float()}.
+-type bound() :: {LeftTopX::float(), 
+                  LeftTopY::float(), 
+                  RightBottomX::float(), 
+                  RightBottom::float()}.
 
--type enclosure(T) :: {MinX::T, MinY::T, MaxX::T, MaxY::T}.
+-type enclosure(T) :: {MinX::T, 
+                       MinY::T, 
+                       MaxX::T, 
+                       MaxY::T}.
 
 %% the region of the band
 -type bandregion() :: {
@@ -65,20 +72,22 @@ behaviour_info(_Other) ->
         YSize::non_neg_integer()}.  % height of the region of the band to be accessed in lines
 
 %% {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize},
--type rasterinfo() :: {
-        OriginX     :: float(), 
-        OriginY     :: float(), 
-        PixelSizeX  :: float(), 
-        PixelSizeY  :: float(), 
-        RasterXSize :: non_neg_integer(), 
-        RasterYSize :: non_neg_integer()}.
+-type img_info() :: {OriginX     :: float(), 
+                     OriginY     :: float(), 
+                     PixelSizeX  :: float(), 
+                     PixelSizeY  :: float(), 
+                     RasterXSize :: non_neg_integer(), 
+                     RasterYSize :: non_neg_integer()}.
 
+-type tile_info() :: {X       :: integer(),
+                      Y       :: integer(),
+                      Zoom    :: byte()}.
 
 %% @doc For given dataset and query in cartographic coordinates returns parameters for ReadRaster() in 
 %% raster coordinates and x/y shifts (for border tiles). If the querysize is not given, the extent is 
 %% returned in the native resolution of dataset ds.
 %% {LeftTopX, LeftTopY, RightBottomX, RightBottomY} = _Bound
--spec geo_query(rasterinfo(), bound(), non_neg_integer()) -> {bandregion(), bandregion()}.
+-spec geo_query(img_info(), bound(), non_neg_integer()) -> {bandregion(), bandregion()}.
 geo_query({OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize}, {Ulx, Uly, Lrx, Lry}, QuerySize) ->
     Rx = erlang:trunc( (Ulx - OriginX) / PixelSizeX + 0.001 ),
     Ry = erlang:trunc( (Uly - OriginY) / PixelSizeY + 0.001 ),
@@ -116,7 +125,7 @@ cfi(I) ->
 %% @doc Get the minimal and maximal zoom level
 %% minimal zoom level: map covers area equivalent to one tile
 %% maximal zoom level: closest possible zoom level up on the resolution of raster
--spec calc_zoomlevel_range(ProjMod::module(), rasterinfo()) -> {byte(), byte()}.
+-spec calc_zoomlevel_range(module(), img_info()) -> {byte(), byte()}.
 calc_zoomlevel_range(ProjMod, RasterInfo) ->
     {_OriginX, _OriginY, PixelSizeX, _PixelSizeY, RasterXSize, RasterYSize} = RasterInfo,
     Tminz = ProjMod:zoom_for_pixelsize( PixelSizeX * max( RasterXSize, RasterYSize) / ?TILE_SIZE ),
@@ -145,10 +154,10 @@ coordinates_to_tile(ProjMod, Lat, Lon, Zoom) ->
 
 
 %% @doc Converts TMS tile coordinates to Microsoft QuadTree
--spec(quadtree(TX::integer(), TY::integer(), Zoom::byte()) -> binary()).
-quadtree(TX, TY, Zoom) ->
+-spec(quadtree({TX::integer(), TY::integer(), Zoom::byte()}) -> binary()).
+quadtree({TX, TY, Zoom}) ->
     Ty = trunc(math:pow(2, Zoom) - 1 - TY),
-    quadtree(TX, Ty, Zoom, <<>>).
+    quadtree({TX, Ty, Zoom}, <<>>).
 
 %% =============================================================================
 %% private functions
@@ -191,7 +200,7 @@ adjust_byedge(R, Rsize, RasterSize, QuerySize) ->
 
 
 %% @doc get the geospatial encluse of a img, in projection coordiates unit
--spec get_img_coordinates_enclosure(rasterinfo()) -> enclosure(float()).
+-spec get_img_coordinates_enclosure(img_info()) -> enclosure(float()).
 get_img_coordinates_enclosure(RasterInfo) ->
     {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize} = RasterInfo,
     ExtX = OriginX + PixelSizeX * RasterXSize,
@@ -199,13 +208,13 @@ get_img_coordinates_enclosure(RasterInfo) ->
     {min(OriginX, ExtX), min(OriginY, ExtY), max(OriginX, ExtX), max(OriginY, ExtY)}.
 
 
--spec quadtree(TX::integer(), TY::integer(), Zoom::byte(), Quadtree::binary()) -> binary().
-quadtree(_TX, _TY, 0, Quadtree) -> 
+-spec quadtree(TileInfo::tile_info(), Quadtree::binary()) -> binary().
+quadtree({_TX, _TY, 0}, Quadtree) -> 
     Quadtree;
-quadtree(TX, TY, Zoom, Quadtree) -> 
+quadtree({TX, TY, Zoom}, Quadtree) -> 
     Mask = 1 bsl (Zoom - 1),
     Digit = bit_op(TX, TY, Mask),
-    quadtree(TX, TY, Zoom - 1, <<Quadtree/binary, (Digit + $0)>>).
+    quadtree({TX, TY, Zoom - 1}, <<Quadtree/binary, (Digit + $0)>>).
 
 -spec bit_op(TX::integer(), TY::integer(), Mask::byte()) -> 0 | 1 | 2 | 3.
 bit_op(TX, TY, Mask) ->
@@ -268,9 +277,9 @@ pixels_to_tile_test() ->
     math_utils:xy_assert({3, 39}, pixels_to_tile(1000, 10000)).
 
 quadtree_test() ->
-    ?assertEqual(<<"2222222">>, quadtree(0, 0, 7)),
-    ?assertEqual(<<"113113">>, quadtree(-1, -10, 6)),
-    ?assertEqual(<<"2221">>, quadtree(1, 1, 4)),
-    ?assertEqual(<<"22221">>, quadtree(1, 1, 5)).
+    ?assertEqual(<<"2222222">>, quadtree({0, 0, 7})),
+    ?assertEqual(<<"113113">>, quadtree({-1, -10, 6})),
+    ?assertEqual(<<"2221">>, quadtree({1, 1, 4})),
+    ?assertEqual(<<"22221">>, quadtree({1, 1, 5})).
 
 -endif.
