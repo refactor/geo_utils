@@ -10,7 +10,15 @@
          tile_to_binary/3,
          save_tile/2]).
 
+-export_type([rawtile/0, 
+              tile/0,
+              img/0]).
+
 -on_load(init/0).
+
+-type rawtile() :: reference().
+-type tile()    :: reference().
+-type img()     :: reference().
 
 -define(nif_stub, nif_stub_error(?LINE)).
 nif_stub_error(Line) ->
@@ -36,35 +44,35 @@ build_out_ds_srs_wkt(_EpsgCode) ->
     ?nif_stub.
 
 %% @doc build out_ds in global world of EPSP:Code projection
--spec create_warped_vrt(ImgFileName::string(), VrtEpsgCode::non_neg_integer()) -> {ok, reference(), global_grid:rasterinfo()} | {error, string()}.
+-spec create_warped_vrt(ImgFileName::string(), VrtEpsgCode::non_neg_integer()) -> {ok, img(), global_grid:rasterinfo()} | {error, string()}.
 create_warped_vrt(_ImgFileName, _VrtEpsgCode) ->
     ?nif_stub.
 
--spec close_img(Img::reference()) -> ok | {error, string()}.
+-spec close_img(Img::img()) -> ok | {error, string()}.
 close_img(_Img) ->
     ?nif_stub.
 
--spec get_meta(Img::reference()) -> any().
+-spec get_meta(Img::img()) -> any().
 get_meta(_ImgRef) ->
     ?nif_stub.
 
--spec copyout_rawtile(reference(), global_grid:bandregion(), global_grid:bandregion()) -> {ok, reference()} | {error, string()}.
+-spec copyout_rawtile(img(), global_grid:bandregion(), global_grid:bandregion()) -> {ok, rawtile()} | {error, string()}.
 copyout_rawtile(_Img, _R, _W) ->
     ?nif_stub.
 
 %% @doc build a Memory GDALDataset for tile
--spec build_tile(RawTile::reference()) -> {ok, reference()} | {error, string()}.
+-spec build_tile(RawTile::rawtile()) -> {ok, tile()} | {error, string()}.
 build_tile(_RawTile) ->
     ?nif_stub.
 
 %% @doc Depracated
--spec save_tile(Tile::reference(), TileFileName::string()) -> ok | {error, string()}.
+-spec save_tile(Tile::tile(), TileFileName::string()) -> ok | {error, string()}.
 save_tile(_Tile, _TileFileName) ->
     ?nif_stub.
 
 %% @doc transform tile to binary as GDAL raster format code:
 %% http://gdal.org/formats_list.html
--spec tile_to_binary(Tile::reference(), TileFileName::iolist(), RasterFormatCode::string()) -> {ok, binary()} | {error, string()}.
+-spec tile_to_binary(Tile::tile(), TileFileName::iolist(), RasterFormatCode::string()) -> {ok, binary()} | {error, string()}.
 tile_to_binary(_Tile, _TileFileName, _RasterFormatCode) ->
     ?nif_stub.
 

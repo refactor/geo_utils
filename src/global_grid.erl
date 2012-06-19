@@ -34,7 +34,10 @@
         ]).
 -endif.
 
--export_type([bound/0, bandregion/0, rasterinfo/0]).
+-export_type([bound/0, 
+              enclosure/1,
+              bandregion/0, 
+              rasterinfo/0]).
 
 -spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
 behaviour_info(callbacks) ->
@@ -52,7 +55,7 @@ behaviour_info(_Other) ->
 %% {LeftTopX, LeftTopY, RightBottomX, RightBottomY} = Bound
 -type bound() :: {LeftTopX::float(), LeftTopY::float(), RightBottomX::float(), RightBottom::float()}.
 
--type enclosure() :: {MinX::float(), MinY::float(), MaxX::float(), MaxY::float()}.
+-type enclosure(T) :: {MinX::T, MinY::T, MaxX::T, MaxY::T}.
 
 %% the region of the band
 -type bandregion() :: {
@@ -113,7 +116,7 @@ cfi(I) ->
 %% @doc Get the minimal and maximal zoom level
 %% minimal zoom level: map covers area equivalent to one tile
 %% maximal zoom level: closest possible zoom level up on the resolution of raster
--spec calc_zoomlevel_range(ProjMod::atom(), rasterinfo()) -> {byte(), byte()}.
+-spec calc_zoomlevel_range(ProjMod::module(), rasterinfo()) -> {byte(), byte()}.
 calc_zoomlevel_range(ProjMod, RasterInfo) ->
     {_OriginX, _OriginY, PixelSizeX, _PixelSizeY, RasterXSize, RasterYSize} = RasterInfo,
     Tminz = ProjMod:zoom_for_pixelsize( PixelSizeX * max( RasterXSize, RasterYSize) / ?TILE_SIZE ),
@@ -122,7 +125,7 @@ calc_zoomlevel_range(ProjMod, RasterInfo) ->
 
 %% @doc Get the tiles range of the region enclosure for a zoom level, 
 %% in a specified projection profile
--spec calc_tminmax(ProjMod::atom(), enclosure(), byte()) -> enclosure().
+-spec calc_tminmax(module(), enclosure(float()), byte()) -> enclosure(integer()).
 calc_tminmax(ProjMod, {Ominx, Ominy, Omaxx, Omaxy} = _Enclosure, Zoom) ->
     {Tminx, Tminy} = coordinates_to_tile( ProjMod, Ominx, Ominy, Zoom ),
     {Tmaxx, Tmaxy} = coordinates_to_tile( ProjMod, Omaxx, Omaxy, Zoom ),
@@ -135,7 +138,7 @@ calc_tminmax(ProjMod, {Ominx, Ominy, Omaxx, Omaxy} = _Enclosure, Zoom) ->
 
 %% @doc Returns tile for given coordinates
 %% Returns the tile for zoom which covers given lat/lon coordinates
--spec coordinates_to_tile(atom(), float(), float(), byte()) -> {integer(), integer()}.
+-spec coordinates_to_tile(module(), float(), float(), byte()) -> {integer(), integer()}.
 coordinates_to_tile(ProjMod, Lat, Lon, Zoom) ->
     {Px, Py} = ProjMod:coordinates_to_pixels(Lat, Lon, Zoom),
     pixels_to_tile(Px, Py).
@@ -188,7 +191,7 @@ adjust_byedge(R, Rsize, RasterSize, QuerySize) ->
 
 
 %% @doc get the geospatial encluse of a img, in projection coordiates unit
--spec get_img_coordinates_enclosure(rasterinfo()) -> enclosure().
+-spec get_img_coordinates_enclosure(rasterinfo()) -> enclosure(float()).
 get_img_coordinates_enclosure(RasterInfo) ->
     {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize} = RasterInfo,
     ExtX = OriginX + PixelSizeX * RasterXSize,

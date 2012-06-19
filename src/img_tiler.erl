@@ -19,8 +19,11 @@
 -record(tile_position, {current_tile_x :: integer(), 
                         current_tile_y :: integer(), 
                         tile_zoom      :: byte(),
-                        tile_enclosure :: global_grid:encluse()}).
+                        tile_enclosure :: global_grid:enclosure(integer())}).
 
+
+
+%% @spec scan_img() -> {continue, {integer(),integer(),byte()}, fun()}.
 scan_img() ->
     {TileZoom, TileEnclosure} = calc_tiles_enclosure(),
     {StartTileX, StartTileY, _, _} = TileEnclosure,
@@ -33,8 +36,7 @@ scan_img() ->
                                             tile_enclosure = TileEnclosure})
                end}.
 
--spec copyout_rawtile_for(integer(), integer(), byte()) -> 
-    {ok, reference()} | {error, string()}.
+%% @spec copyout_rawtile_for(integer(), integer(), byte()) -> {ok, reference()} | {error, string()}.
 copyout_rawtile_for(Tx, Ty, Tz) ->
     QuerySize = 4 * ?TILE_SIZE,
     {MinX, MinY, MaxX, MaxY} = ProfileMod:tile_bounds(Tx, Ty, Tz),
@@ -84,7 +86,7 @@ scan_img(#tile_position{current_tile_x = X,
 %% @doc calculate the tiles enclosure of the img Raster in a specified zoom level
 %% the zoom level is dicided by the img precision which is defined in RasterInfo
 %% and used for base_tiles of the img
--spec calc_tiles_enclosure() -> {byte(), global_grid:enclosure()}.
+%% @spec calc_tiles_enclosure() -> {byte(), global_grid:enclosure(integer())}.
 calc_tiles_enclosure() ->
     {_Tminz, Tmaxz} = calc_zoomlevel_range(),
     SpatialEnclosure = global_grid:get_img_coordinates_enclosure(RasterInfo),
@@ -94,7 +96,7 @@ calc_tiles_enclosure() ->
 %% @doc Get the minimal and maximal zoom level
 %% minimal zoom level: map covers area equivalent to one tile
 %% maximal zoom level: closest possible zoom level up on the resolution of raster
--spec calc_zoomlevel_range() -> {byte(), byte()}.
+%% @spec calc_zoomlevel_range() -> {byte(), byte()}.
 calc_zoomlevel_range() ->
     {_OriginX, _OriginY, PixelSizeX, _PixelSizeY, RasterXSize, RasterYSize} = RasterInfo,
     Tminz = ProfileMod:zoom_for_pixelsize( PixelSizeX * max( RasterXSize, RasterYSize) / ?TILE_SIZE ),
