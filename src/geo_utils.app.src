@@ -3,8 +3,9 @@
   {description, "Geospatial Utilities"},
   {vsn, "0.1"},
   {modules, [
-             math_utils,
-             mercator_tiles
+             global_geodetic,
+             global_mercator,
+             img_tiler
             ]},
   {registered, []},
   {applications, [

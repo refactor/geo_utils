@@ -84,7 +84,7 @@
          coordinates_to_pixels/3,
          zoom_for_pixelsize/1, 
          resolution/1, 
-         get_max_tilex/1,
+         max_tile_coordinate/1,
          epsg_code/0]).
 
 %-define(EARTH_RADIUS, 6378137).
@@ -122,17 +122,20 @@ zoom_for_pixelsize(PixelSize) ->
     global_grid:zoom_for_pixelsize(fun ?MODULE:resolution/1, PixelSize, 0).
 
 %% @doc Resolution (meters/pixel) for given zoom level (measured at Equator)
+%% INITIAL_RESOLUTION / (2 ** Zoom)
 -spec resolution(Zoom::byte()) -> float().
 resolution(Zoom) ->
-    ?INITIAL_RESOLUTION / math:pow(2, Zoom).
+    ?INITIAL_RESOLUTION / (1 bsl Zoom).
 
 %% @doc Spherical Mercator, EPSG:3785
 -spec epsg_code() -> non_neg_integer().
 epsg_code() ->
     3785.
 
-get_max_tilex(Zoom) ->
-    trunc(math:pow(2, Zoom)) - 1.
+%% @doc calculate max tile-width or tile-height in specified zoom level
+%% 2 ** Zoom - 1
+max_tile_coordinate(Zoom) ->
+    (1 bsl Zoom) - 1.
 
 %% ----------------------------- protected functions ---------------------------
 %%

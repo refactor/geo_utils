@@ -19,11 +19,10 @@
 
 %% API
 -export([geo_query/3,
-         get_img_coordinates_enclosure/1, calc_tminmax/3,
+         calc_tminmax/2,
          quadtree/1]).
 
--export([zoom_for_pixelsize/3, 
-         pixels_to_tile/2]).
+-export([zoom_for_pixelsize/3]).
 
 
 -ifdef(TEST).
@@ -47,29 +46,30 @@ behaviour_info(callbacks) ->
                                 % given coordinates in differnent projection or tile profile
      {zoom_for_pixelsize, 1},   % Max scaledown zoom of the pyramid closest to the pixelSize
      {resolution, 1},           % Resolution for given zoom level
-     {get_max_tilex, 1},        % there is differnt calutaions of profiles
+     {max_tile_coordinate, 1},  % Calculate max tile-width or tile-height in specified zoom level
+                                % there is different calutaions for different profiles
      {epsg_code, 0}];           % EPSG code for Projection 
 behaviour_info(_Other) ->
     undefined.
 
 
 %% {LeftTopX, LeftTopY, RightBottomX, RightBottomY} = Bound
--type bound() :: {LeftTopX::float(), 
-                  LeftTopY::float(), 
-                  RightBottomX::float(), 
-                  RightBottom::float()}.
+-type bound() :: {LeftTopX     :: float(), 
+                  LeftTopY     :: float(), 
+                  RightBottomX :: float(), 
+                  RightBottomY :: float()}.
 
--type enclosure(T) :: {MinX::T, 
-                       MinY::T, 
-                       MaxX::T, 
-                       MaxY::T}.
+-type enclosure(T) :: {MinX :: T, 
+                       MinY :: T, 
+                       MaxX :: T, 
+                       MaxY :: T}.
 
 %% the region of the band
 -type bandregion() :: {
-        XOffset::non_neg_integer(), % pixel offset to the top left corner of the region of the band
-        YOffset::non_neg_integer(), % line offset to the top left corner of the region of the band
-        XSize::non_neg_integer(),   % width of the region of the band to be accessed in pixels
-        YSize::non_neg_integer()}.  % height of the region of the band to be accessed in lines
+        XOffset :: non_neg_integer(), % pixel offset to the top left corner of the region of the band
+        YOffset :: non_neg_integer(), % line offset to the top left corner of the region of the band
+        XSize :: non_neg_integer(),   % width of the region of the band to be accessed in pixels
+        YSize :: non_neg_integer()}.  % height of the region of the band to be accessed in lines
 
 %% {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize},
 -type img_info() :: {OriginX     :: float(), 
@@ -122,28 +122,22 @@ cfi(I) ->
     end.
 
 
-%% @doc Get the minimal and maximal zoom level
-%% minimal zoom level: map covers area equivalent to one tile
-%% maximal zoom level: closest possible zoom level up on the resolution of raster
--spec calc_zoomlevel_range(module(), img_info()) -> {byte(), byte()}.
-calc_zoomlevel_range(ProjMod, RasterInfo) ->
-    {_OriginX, _OriginY, PixelSizeX, _PixelSizeY, RasterXSize, RasterYSize} = RasterInfo,
-    Tminz = ProjMod:zoom_for_pixelsize( PixelSizeX * max( RasterXSize, RasterYSize) / ?TILE_SIZE ),
-    Tmaxz = ProjMod:zoom_for_pixelsize( PixelSizeX ),
-    {Tminz, Tmaxz}.
-
 %% @doc Get the tiles range of the region enclosure for a zoom level, 
 %% in a specified projection profile
--spec calc_tminmax(module(), enclosure(float()), byte()) -> enclosure(integer()).
-calc_tminmax(ProjMod, {Ominx, Ominy, Omaxx, Omaxy} = _Enclosure, Zoom) ->
+-spec calc_tminmax(module(), enclosure(float())) -> {byte(), enclosure(integer())}.
+calc_tminmax(ProjMod, RasterInfo) ->
+    {_Tminz, Tmaxz} = calc_zoomlevel_range(ProjMod, RasterInfo),
+    Zoom = Tmaxz,
+
+    {Ominx, Ominy, Omaxx, Omaxy} = calc_img_enclosure(RasterInfo),
     {Tminx, Tminy} = coordinates_to_tile( ProjMod, Ominx, Ominy, Zoom ),
     {Tmaxx, Tmaxy} = coordinates_to_tile( ProjMod, Omaxx, Omaxy, Zoom ),
-    Z = ProjMod:get_max_tilex(Zoom),
+    MaxTileWidthOrHeight = ProjMod:max_tile_coordinate(Zoom),
     EnclosureOfZoom = {
         max(0, Tminx), max(0, Tminy), 
-        min(Z, Tmaxx), min(Z, Tmaxy)
+        min(MaxTileWidthOrHeight, Tmaxx), min(MaxTileWidthOrHeight, Tmaxy)
     },
-    EnclosureOfZoom.
+    {Zoom, EnclosureOfZoom}.
 
 %% @doc Returns tile for given coordinates
 %% Returns the tile for zoom which covers given lat/lon coordinates
@@ -154,20 +148,32 @@ coordinates_to_tile(ProjMod, Lat, Lon, Zoom) ->
 
 
 %% @doc Converts TMS tile coordinates to Microsoft QuadTree
+%% http://msdn.microsoft.com/en-us/library/bb259689.aspx
 -spec(quadtree({TX::integer(), TY::integer(), Zoom::byte()}) -> binary()).
 quadtree({TX, TY, Zoom}) ->
-    Ty = trunc(math:pow(2, Zoom) - 1 - TY),
+    % Ty = (1 bsl Zoom) - 1 - TY, % 2 ** Zoom - TY
+    Ty = global_mercator:max_tile_coordinate(Zoom) - TY,
     quadtree({TX, Ty, Zoom}, <<>>).
 
 %% =============================================================================
 %% private functions
 %% =============================================================================
 
+%% @doc Get the minimal and maximal zoom level
+%% minimal zoom level: map covers area equivalent to one tile
+%% maximal zoom level: closest possible zoom level up on the resolution of raster
+-spec calc_zoomlevel_range(module(), img_info()) -> {byte(), byte()}.
+calc_zoomlevel_range(ProjMod, RasterInfo) ->
+    {_OriginX, _OriginY, PixelSizeX, _PixelSizeY, RasterXSize, RasterYSize} = RasterInfo,
+    Tminz = ProjMod:zoom_for_pixelsize( PixelSizeX * max( RasterXSize, RasterYSize) / ?TILE_SIZE ),
+    Tmaxz = ProjMod:zoom_for_pixelsize( PixelSizeX ),
+    {Tminz, Tmaxz}.
+
 %% @doc Returns coordinates of the tile covering region in pixel coordinates
-pixels_to_tile(Px, Py) ->
-    Tx = erlang:trunc( math_utils:ceiling( Px / float(?TILE_SIZE) ) - 1),
-    Ty = erlang:trunc( math_utils:ceiling( Py / float(?TILE_SIZE) ) - 1),
-    {Tx, Ty}.
+pixels_to_tile(PixelX, PixelY) ->
+    TileX = erlang:trunc( math_utils:ceiling( PixelX / float(?TILE_SIZE) ) - 1),
+    TileY = erlang:trunc( math_utils:ceiling( PixelY / float(?TILE_SIZE) ) - 1),
+    {TileX, TileY}.
 
 %% @doc Coordinates should not go out of the bounds of the raster
 -spec adjust_byedge(integer(), integer(), non_neg_integer(), non_neg_integer()) -> bandregion().
@@ -199,9 +205,9 @@ adjust_byedge(R, Rsize, RasterSize, QuerySize) ->
     {NewR, NewW, ResWsize, ResRsize}.
 
 
-%% @doc get the geospatial encluse of a img, in projection coordiates unit
--spec get_img_coordinates_enclosure(img_info()) -> enclosure(float()).
-get_img_coordinates_enclosure(RasterInfo) ->
+%% @doc get the geospatial enclosure of an img, in projection coordiates unit
+-spec calc_img_enclosure(img_info()) -> enclosure(float()).
+calc_img_enclosure(RasterInfo) ->
     {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize} = RasterInfo,
     ExtX = OriginX + PixelSizeX * RasterXSize,
     ExtY = OriginY + PixelSizeY * RasterYSize,

@@ -43,7 +43,7 @@
          coordinates_to_pixels/3,
          zoom_for_pixelsize/1, 
          resolution/1, 
-         get_max_tilex/1,
+         max_tile_coordinate/1,
          epsg_code/0]).
 
 
@@ -58,7 +58,7 @@
 %% @doc Returns bounds of the given tile
 -spec tile_bounds(TX::integer(), TY::integer(), Zoom::byte()) -> global_grid:bound().
 tile_bounds(TX, TY, Zoom) ->
-    Res = 180.0 / math:pow(2, Zoom),
+    Res = 180.0 / (1 bsl Zoom),  % 180.0 / (2 ** Zoom)
     MinX = TX * Res - 180,
     MinY = TY * Res - 90,
     MaxX = (TX + 1) * Res - 180,
@@ -67,17 +67,20 @@ tile_bounds(TX, TY, Zoom) ->
 
 %% @doc Resolution (arc/pixel) for given zoom level (measured at Equator)
 %%  provide <TileSet>s with units-per-pixel
+%%  180 / ?TILE_SIZE / (2 ** Zoom)
 -spec resolution(Zoom::byte()) -> float().
 resolution(Zoom) ->
-    180.0 / ?TILE_SIZE / math:pow(2, Zoom).
+    180.0 / ?TILE_SIZE / (1 bsl Zoom).
 
 %% @doc WGS84, EPSG:4326
 -spec epsg_code() -> non_neg_integer().
 epsg_code() ->
     4326.
 
-get_max_tilex(Zoom) ->
-    trunc(math:pow(2, Zoom + 1)) - 1.
+%% @doc calculate max tile-width or tile-height in specified zoom level
+%% 2 ** (Zoom + 1) - 1
+max_tile_coordinate(Zoom) ->
+    (1 bsl  (Zoom + 1)) - 1.
 
 %% @doc Maximal scaledown zoom of the pyramid closest to the pixelSize.
 -spec zoom_for_pixelsize(PixelSize::float()) -> byte().
