@@ -80,7 +80,7 @@
 -behaviour(global_grid).
 -include("global_grid.hrl").
 
--export([tile_bounds/3, 
+-export([tile_bounds/1, 
          coordinates_to_pixels/3,
          zoom_for_pixelsize/1, 
          resolution/1, 
@@ -110,8 +110,8 @@
 %% =============================================================================
 
 %% @doc Returns bounds of the given tile in EPSG:3785 or EPSG:900913 coordinates
--spec tile_bounds(TX::integer(), TY::integer(), Zoom::byte()) -> global_grid:bound().
-tile_bounds(TX, TY, Zoom) ->
+-spec tile_bounds(global_grid:tile_inf()) -> global_grid:bound().
+tile_bounds({TX, TY, Zoom}) ->
     {MinX, MinY} = pixels_to_meters(TX * ?TILE_SIZE, TY * ?TILE_SIZE, Zoom),
     {MaxX, MaxY} = pixels_to_meters((TX + 1) * ?TILE_SIZE, (TY + 1) * ?TILE_SIZE, Zoom),
     {MinX, MinY, MaxX, MaxY}.
@@ -169,13 +169,13 @@ pixels_to_meters(PX, PY, Zoom) ->
 tile_bounds_test() ->
     math_utils:swne_assert(
         {-19841829.550379194, -19939668.946584217, -19832045.61075869, -19929885.006963715}, 
-        tile_bounds(20, 10, 12)),
+        tile_bounds({20, 10, 12})),
     math_utils:swne_assert(
         {-20037508.342789244, -20037508.342789244, 20037508.342789244, 20037508.342789244}, 
-        tile_bounds(0, 0, 0)),
+        tile_bounds({0, 0, 0})),
     math_utils:swne_assert(
         {46100394.751242355, 7819049.371403821, 46100547.62529893, 7819202.245460391}, 
-        tile_bounds(432630,182219,18)).
+        tile_bounds({432630,182219,18})).
 
 resolution_test() ->
     ?assertEqual(78271.51696402048, resolution(1)).

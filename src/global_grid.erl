@@ -41,7 +41,7 @@
 
 -spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
 behaviour_info(callbacks) ->
-    [{tile_bounds, 3},          % Returns bounds of the given tile
+    [{tile_bounds, 1},          % Returns bounds of the given tile
      {coordinates_to_pixels, 3},% for coordinates_to_tiles which return tile of 
                                 % given coordinates in differnent projection or tile profile
      {zoom_for_pixelsize, 1},   % Max scaledown zoom of the pyramid closest to the pixelSize

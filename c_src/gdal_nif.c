@@ -11,6 +11,8 @@
 
 #include <stdbool.h>
 
+#define FILENAME_LEN 64
+
 static ErlNifResourceType* gdal_img_RESOURCE = NULL;
 static ErlNifResourceType* gdal_rawtile_RESOURCE = NULL;
 static ErlNifResourceType* gdal_tile_RESOURCE = NULL;
@@ -83,7 +85,7 @@ static void gdal_nif_img_resource_cleanup(ErlNifEnv* env, void* arg);
 static void gdal_nif_rawtile_resource_cleanup(ErlNifEnv* env, void* arg);
 static void gdal_nif_tile_resource_cleanup(ErlNifEnv* env, void* arg);
 static void free_temp_rawdata(gdal_rawtile_handle* hTile);
-static ERL_NIF_TERM get_rasterinfo(ErlNifEnv* env, GDALDatasetH ds, bool* flag);
+static ERL_NIF_TERM get_imginfo(ErlNifEnv* env, GDALDatasetH ds);
 static ERL_NIF_TERM make_error_msg(ErlNifEnv* env, const char* msg);
 
 static ErlNifFunc nif_funcs[] =
@@ -144,123 +146,124 @@ static ERL_NIF_TERM gdal_nif_build_out_ds_srs_wkt(ErlNifEnv* env, int argc,
 static ERL_NIF_TERM gdal_nif_create_warped_vrt(ErlNifEnv* env, int argc,
                                           const ERL_NIF_TERM argv[])
 {
-    char name[4096];
-    size_t name_sz;
-    int epsg_code;
-    if (enif_get_string(env, argv[0], name, sizeof(name), ERL_NIF_LATIN1) &&
-        enif_get_int(env, argv[1], &epsg_code)) {
-        name_sz = strlen(name);
-
-        GDALDatasetH in_ds = GDALOpenShared(name, GA_ReadOnly);
-        if (in_ds != NULL) {
-            gdal_img_handle* handle = enif_alloc_resource(
-                                                    gdal_img_RESOURCE, 
-                                                    sizeof(gdal_img_handle));
-            memset(handle, '\0', sizeof(*handle));
-            handle->in_ds = in_ds;
-            handle->options_resampling = "average";
-            handle->querysize = 256 * 4;
-            handle->tilesize = 256;
-
-            int rasterCount = GDALGetRasterCount(in_ds);
-            if (rasterCount == 0) {
-                destroy_img_handle(handle);
-
-                const char* msg = "Input file '%s' has no raster band";
-                char errstr[name_sz + strlen(msg) + 1];
-                sprintf(errstr, msg, name);
-                return make_error_msg(env, errstr);
-            }
-
-            GDALRasterBandH hBand = GDALGetRasterBand(in_ds, 1);
-            if (GDALGetRasterColorTable(hBand) != NULL) {
-                const char* msg = 
-                    "Please convert this file to RGB/RGBA and run gdal2tiles on the result.\n" 
-                    "From paletted file you can create RGBA file (temp.vrt) by:\n"
-                    "gdal_translate -of vrt -expand rgba %s temp.vrt\n"
-                    "then run this program: gdal2tiles temp.vrt";
-                char errstr[name_sz + strlen(msg) + 1];
-                sprintf(errstr, msg, name);
-                return make_error_msg(env, errstr);
-            }
-
-            double padfTransform[6];
-            double errTransform[6] = {0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
-            GDALGetGeoTransform(in_ds, padfTransform);
-            if (0 == memcmp(padfTransform, errTransform, sizeof(errTransform))
-                     && GDALGetGCPCount(in_ds) == 0) {
-                return make_error_msg(env, 
-                                      "There is no georeference - "
-                                      "neither affine transformation (worldfile) nor GCPs");
-            }
-
-            const char* in_srs_wkt = GDALGetProjectionRef(in_ds);
-            if (in_srs_wkt == NULL && GDALGetGCPCount(in_ds) != 0) {
-                in_srs_wkt = GDALGetGCPProjection(in_ds);
-            }
-            char* out_srs_wkt = build_srs_wkt_for(epsg_code);
-            GDALDatasetH out_ds = GDALAutoCreateWarpedVRT(in_ds, 
-                                                          in_srs_wkt, 
-                                                          out_srs_wkt, 
-                                                          GRA_NearestNeighbour, 
-                                                          0.0, 
-                                                          NULL);
-            handle->out_ds = out_ds;
-            OGRFree(out_srs_wkt);
-
-
-            handle->alphaBand = GDALGetMaskBand(GDALGetRasterBand(handle->out_ds, 1));
-            rasterCount = GDALGetRasterCount(handle->out_ds);
-            unsigned int dataBandsCount;
-            if (GDALGetMaskFlags(handle->alphaBand) & GMF_ALPHA || 
-                    rasterCount == 4 || rasterCount == 2) {
-                dataBandsCount = rasterCount - 1;
-            }
-            else {
-                dataBandsCount = rasterCount;
-            }
-            handle->dataBandsCount = dataBandsCount;
-            handle->tilebands = dataBandsCount + 1;
-
-
-            bool successed = true;
-            ERL_NIF_TERM rasterres = get_rasterinfo(env, out_ds, &successed);
-            if (!successed) {
-                //destroy_img_handle(handle);
-                return rasterres;
-            }
-            ERL_NIF_TERM rasterinfo = rasterres;
-
-            ERL_NIF_TERM imgref = enif_make_resource(env, handle);
-            enif_release_resource(handle);
-
-            return enif_make_tuple3(env, ATOM_OK, imgref, rasterinfo);
-        }
-        else {
-            const char* msg = "It is not possible to open the input file '%s'.";
-            char errstr[name_sz + strlen(msg) + 1];
-            sprintf(errstr, msg, name);
-            return make_error_msg(env, errstr);
-        }
+    ErlNifBinary filenameBin;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &filenameBin) || (filenameBin.size >= FILENAME_LEN)) {
+        return make_error_msg(env, "filename error, maybe too long");
     }
-    else {
+
+    char imgfilename[FILENAME_LEN] = "";
+    size_t name_sz = filenameBin.size;
+    memcpy(imgfilename, filenameBin.data, filenameBin.size);
+    DEBUG("img filename: %s\r\n", imgfilename);
+
+    int epsg_code;
+    if (!enif_get_int(env, argv[1], &epsg_code)) {
         return enif_make_badarg(env);
     }
-}
 
-static ERL_NIF_TERM get_rasterinfo(ErlNifEnv* env, GDALDatasetH out_ds, bool* successed) {
+    GDALDatasetH in_ds = GDALOpenShared(imgfilename, GA_ReadOnly);
+    if (in_ds == NULL) {
+        const char* msg = "It is not possible to open the input file '%s'.";
+        char errstr[name_sz + strlen(msg) + 1];
+        sprintf(errstr, msg, imgfilename);
+        return make_error_msg(env, errstr);
+    }
+
+    gdal_img_handle* handle = enif_alloc_resource(
+                                            gdal_img_RESOURCE, 
+                                            sizeof(gdal_img_handle));
+    memset(handle, '\0', sizeof(*handle));
+    handle->in_ds = in_ds;
+    handle->options_resampling = "average";
+    handle->querysize = 256 * 4;
+    handle->tilesize = 256;
+
+    int rasterCount = GDALGetRasterCount(in_ds);
+    if (rasterCount == 0) {
+        const char* msg = "Input file '%s' has no raster band";
+        char errstr[name_sz + strlen(msg) + 1];
+        sprintf(errstr, msg, imgfilename);
+
+        destroy_img_handle(handle);
+        return make_error_msg(env, errstr);
+    }
+
+    GDALRasterBandH hBand = GDALGetRasterBand(in_ds, 1);
+    if (GDALGetRasterColorTable(hBand) != NULL) {
+        const char* msg = 
+            "Please convert this file to RGB/RGBA and run gdal2tiles on the result.\n" 
+            "From paletted file you can create RGBA file (temp.vrt) by:\n"
+            "gdal_translate -of vrt -expand rgba %s temp.vrt\n"
+            "then run this program: gdal2tiles temp.vrt";
+        char errstr[name_sz + strlen(msg) + 1];
+        sprintf(errstr, msg, imgfilename);
+
+        destroy_img_handle(handle);
+        return make_error_msg(env, errstr);
+    }
+
     double padfTransform[6];
-    GDALGetGeoTransform(out_ds, padfTransform);
-    if (padfTransform[2] != 0.0 && padfTransform[4] != 0.0) {
-//        destroy_img_handle(handle);
-        *successed = false;
+    double errTransform[6] = {0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+    GDALGetGeoTransform(in_ds, padfTransform);
+    if (0 == memcmp(padfTransform, errTransform, sizeof(errTransform))
+             && GDALGetGCPCount(in_ds) == 0) {
+        destroy_img_handle(handle);
+        return make_error_msg(env, 
+                              "There is no georeference - "
+                              "neither affine transformation (worldfile) nor GCPs");
+    }
+
+    const char* in_srs_wkt = GDALGetProjectionRef(in_ds);
+    if (in_srs_wkt == NULL && GDALGetGCPCount(in_ds) != 0) {
+        in_srs_wkt = GDALGetGCPProjection(in_ds);
+    }
+    char* out_srs_wkt = build_srs_wkt_for(epsg_code);
+    GDALDatasetH out_ds = GDALAutoCreateWarpedVRT(in_ds, 
+                                                  in_srs_wkt, 
+                                                  out_srs_wkt, 
+                                                  GRA_NearestNeighbour, 
+                                                  0.0, 
+                                                  NULL);
+    handle->out_ds = out_ds;
+    OGRFree(out_srs_wkt);
+
+
+    handle->alphaBand = GDALGetMaskBand(GDALGetRasterBand(handle->out_ds, 1));
+    rasterCount = GDALGetRasterCount(handle->out_ds);
+    unsigned int dataBandsCount;
+    if (GDALGetMaskFlags(handle->alphaBand) & GMF_ALPHA || 
+            rasterCount == 4 || rasterCount == 2) {
+        dataBandsCount = rasterCount - 1;
+    }
+    else {
+        dataBandsCount = rasterCount;
+    }
+    handle->dataBandsCount = dataBandsCount;
+    handle->tilebands = dataBandsCount + 1;
+
+
+    ERL_NIF_TERM imginfo = get_imginfo(env, out_ds);
+    if (enif_compare(ATOM_ERROR, imginfo) == 0) {
+        destroy_img_handle(handle);
         return make_error_msg(env,
                               "Georeference of the raster contains rotation or skew. "
                               "Such raster is not supported. "
                               "Please use gdalwarp first");
     }
 
-    *successed = true;
+    ERL_NIF_TERM imgref = enif_make_resource(env, handle);
+    enif_release_resource(handle);
+
+    return enif_make_tuple3(env, ATOM_OK, imgref, imginfo);
+}
+
+static ERL_NIF_TERM get_imginfo(ErlNifEnv* env, GDALDatasetH out_ds) {
+    double padfTransform[6];
+    GDALGetGeoTransform(out_ds, padfTransform);
+    if (padfTransform[2] != 0.0 && padfTransform[4] != 0.0) {
+        return ATOM_ERROR;
+    }
+
     return enif_make_tuple6(env, 
                 enif_make_double(env, padfTransform[0]),        // OriginX 
                 enif_make_double(env, padfTransform[3]),        // OriginY
@@ -435,7 +438,6 @@ static ERL_NIF_TERM gdal_nif_save_tile(ErlNifEnv* env, int argc, const ERL_NIF_T
     return ATOM_OK;
 }
 
-#define FILENAME_LEN 64
 static ERL_NIF_TERM gdal_nif_tile_to_binary(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     gdal_tile_handle* ti;
@@ -445,7 +447,7 @@ static ERL_NIF_TERM gdal_nif_tile_to_binary(ErlNifEnv* env, int argc, const ERL_
 
     ErlNifBinary tilefilenameBin;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &tilefilenameBin) || (tilefilenameBin.size >= FILENAME_LEN)) {
-        return enif_make_badarg(env);
+        return make_error_msg(env, "filename error, maybe too long");
     }
 
     char rasterFormatCode[16] = "";
