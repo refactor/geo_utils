@@ -82,9 +82,8 @@
 
 -export([tile_bounds/1, 
          coordinates_to_pixels/3,
-         zoom_for_pixelsize/1, 
          resolution/1, 
-         max_tile_coordinate/1,
+         max_tile_extent/1,
          epsg_code/0]).
 
 %-define(EARTH_RADIUS, 6378137).
@@ -116,11 +115,6 @@ tile_bounds({TX, TY, Zoom}) ->
     {MaxX, MaxY} = pixels_to_meters((TX + 1) * ?TILE_SIZE, (TY + 1) * ?TILE_SIZE, Zoom),
     {MinX, MinY, MaxX, MaxY}.
 
-%% @doc Maximal scaledown zoom of the pyramid closest to the pixelSize.
--spec zoom_for_pixelsize(PixelSize::float()) -> byte().
-zoom_for_pixelsize(PixelSize) ->
-    global_grid:zoom_for_pixelsize(fun ?MODULE:resolution/1, PixelSize, 0).
-
 %% @doc Resolution (meters/pixel) for given zoom level (measured at Equator)
 %% INITIAL_RESOLUTION / (2 ** Zoom)
 -spec resolution(Zoom::byte()) -> float().
@@ -134,7 +128,7 @@ epsg_code() ->
 
 %% @doc calculate max tile-width or tile-height in specified zoom level
 %% 2 ** Zoom - 1
-max_tile_coordinate(Zoom) ->
+max_tile_extent(Zoom) ->
     (1 bsl Zoom) - 1.
 
 %% ----------------------------- protected functions ---------------------------
@@ -181,11 +175,11 @@ resolution_test() ->
     ?assertEqual(78271.51696402048, resolution(1)).
 
 zoom_for_pixelsize_test() ->
-    ?assertEqual(0, zoom_for_pixelsize(1000000)),
-    ?assertEqual(0, zoom_for_pixelsize(100000)),
-    ?assertEqual(20, zoom_for_pixelsize(0.1)),
-    ?assertEqual(30, zoom_for_pixelsize(0.0000728964)),
-    ?assertEqual(3, zoom_for_pixelsize(10000)).
+    ?assertEqual(0, global_grid:zoom_for_pixelsize(?MODULE, 1000000)),
+    ?assertEqual(0, global_grid:zoom_for_pixelsize(?MODULE, 100000)),
+    ?assertEqual(20, global_grid:zoom_for_pixelsize(?MODULE, 0.1)),
+    ?assertEqual(30, global_grid:zoom_for_pixelsize(?MODULE, 0.0000728964)),
+    ?assertEqual(3, global_grid:zoom_for_pixelsize(?MODULE, 10000)).
 
 pixels_to_meters_test() ->
     math_utils:xy_assert({762677661.29741549, 762677661.29741549}, 

@@ -41,9 +41,8 @@
 
 -export([tile_bounds/1, 
          coordinates_to_pixels/3,
-         zoom_for_pixelsize/1, 
          resolution/1, 
-         max_tile_coordinate/1,
+         max_tile_extent/1,
          epsg_code/0]).
 
 
@@ -79,13 +78,9 @@ epsg_code() ->
 
 %% @doc calculate max tile-width or tile-height in specified zoom level
 %% 2 ** (Zoom + 1) - 1
-max_tile_coordinate(Zoom) ->
+max_tile_extent(Zoom) ->
     (1 bsl  (Zoom + 1)) - 1.
 
-%% @doc Maximal scaledown zoom of the pyramid closest to the pixelSize.
--spec zoom_for_pixelsize(PixelSize::float()) -> byte().
-zoom_for_pixelsize(PixelSize) ->
-    global_grid:zoom_for_pixelsize(fun ?MODULE:resolution/1, PixelSize, 0).
 
 %% ---------------------------- protected functions ----------------------------
 %%
@@ -121,13 +116,13 @@ resolution_test() ->
     ?assertEqual(0.0006866455078125, resolution(10)).
 
 zoom_for_pixelsize_test() ->
-    ?assertEqual(0, zoom_for_pixelsize(1000000)),
-    ?assertEqual(0, zoom_for_pixelsize(100000)),
-    ?assertEqual(0, zoom_for_pixelsize(1)),
-    ?assertEqual(2, zoom_for_pixelsize(0.1)),
-    ?assertEqual(3, zoom_for_pixelsize(0.07)),
-    ?assertEqual(6, zoom_for_pixelsize(0.01)),
-    ?assertEqual(9, zoom_for_pixelsize(0.001)).
+    ?assertEqual(0, global_grid:zoom_for_pixelsize(?MODULE, 1000000)),
+    ?assertEqual(0, global_grid:zoom_for_pixelsize(?MODULE, 100000)),
+    ?assertEqual(0, global_grid:zoom_for_pixelsize(?MODULE, 1)),
+    ?assertEqual(2, global_grid:zoom_for_pixelsize(?MODULE, 0.1)),
+    ?assertEqual(3, global_grid:zoom_for_pixelsize(?MODULE, 0.07)),
+    ?assertEqual(6, global_grid:zoom_for_pixelsize(?MODULE, 0.01)),
+    ?assertEqual(9, global_grid:zoom_for_pixelsize(?MODULE, 0.001)).
 
 coordinates_to_pixels_test() ->
     math_utils:xy_assert({256.0, 128.0}, 

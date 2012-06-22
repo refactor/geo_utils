@@ -1,4 +1,4 @@
--module(img_tiler, [ProfileMod, RasterImg, RasterInfo]).
+-module(img_tiler, [ProfileMod, Img, ImgInfo]).
 
 -include("global_grid.hrl").
 
@@ -41,10 +41,10 @@ copyout_rawtile_for(Tx, Ty, Tz) ->
     QuerySize = 4 * ?TILE_SIZE,
     {MinX, MinY, MaxX, MaxY} = ProfileMod:tile_bounds({Tx, Ty, Tz}),
     Bound = {MinX, MaxY, MaxX, MinY},
-    {Rb, Wb} = global_grid:geo_query(RasterInfo, Bound, QuerySize),
+    {Rb, Wb} = global_grid:geo_query(ImgInfo, Bound, QuerySize),
     lager:debug("tx: ~p, ty: ~p, tz: ~p, bound: ~p, rb: ~p, wb: ~p, querysize: ~p", 
                 [Tx, Ty, Tz, Bound, Rb, Wb, QuerySize]),
-    gdal_nif:copyout_rawtile(RasterImg, Rb, Wb).
+    gdal_nif:copyout_rawtile(Img, Rb, Wb).
 
 
 %% =============================================================================
@@ -88,10 +88,10 @@ scan_img(#tile_position{current_tile_x = X,
 %% =============================================================================
 
 %% @doc calculate the tiles enclosure of the img Raster in a specified zoom level
-%% the zoom level is dicided by the img precision which is defined in RasterInfo
+%% the zoom level is dicided by the img precision which is defined in ImgInfo
 %% and used for base_tiles of the img
 %% @spec calc_tiles_enclosure() -> {byte(), global_grid:enclosure(integer())}.
 calc_tiles_enclosure() ->
-    global_grid:calc_tminmax(ProfileMod, RasterInfo).
+    global_grid:calc_tminmax(ProfileMod, ImgInfo).
 
 
