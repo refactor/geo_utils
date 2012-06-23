@@ -12,7 +12,8 @@
 -endif.
 
 %% API
--export([scan_img/0,
+-export([new/2, new/3,
+         scan_img/0,
          copyout_rawtile_for/3
         ]).
 
@@ -21,6 +22,15 @@
                         tile_zoom      :: byte(),
                         tile_enclosure :: global_grid:enclosure(integer())}).
 
+
+%% override parameterized module new function
+new(ProfileMod, ImgFileName) ->
+    {ok, Img, ImgInfo} = gdal_nif:create_warped_vrt(ImgFileName, ProfileMod:epsg_code()),
+    instance(ProfileMod, Img, ImgInfo).
+
+%% old depracated 
+new(ProfileMod, Img, ImgInfo) ->
+    instance(ProfileMod, Img, ImgInfo).
 
 
 %% @spec scan_img() -> {continue, {integer(),integer(),byte()}, fun()}.
