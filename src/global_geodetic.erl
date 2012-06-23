@@ -36,7 +36,8 @@
 %% -----------------------------------------------------------------------------
 
 -module(global_geodetic).
--behaviour(global_grid).
+-behaviour(tile_grid).
+
 -include("global_grid.hrl").
 
 -export([tile_bounds/1, 
@@ -55,7 +56,7 @@
 %% =============================================================================
 
 %% @doc Returns bounds of the given tile
--spec tile_bounds(global_grid:tile_info()) -> global_grid:bound().
+-spec tile_bounds(tile_grid:tile_info()) -> tile_grid:bound().
 tile_bounds({TX, TY, Zoom}) ->
     Res = 180.0 / (1 bsl Zoom),  % 180.0 / (2 ** Zoom)
     MinX = TX * Res - 180,
@@ -116,13 +117,13 @@ resolution_test() ->
     ?assertEqual(0.0006866455078125, resolution(10)).
 
 zoom_for_pixelsize_test() ->
-    ?assertEqual(0, global_grid:zoom_for_pixelsize(?MODULE, 1000000)),
-    ?assertEqual(0, global_grid:zoom_for_pixelsize(?MODULE, 100000)),
-    ?assertEqual(0, global_grid:zoom_for_pixelsize(?MODULE, 1)),
-    ?assertEqual(2, global_grid:zoom_for_pixelsize(?MODULE, 0.1)),
-    ?assertEqual(3, global_grid:zoom_for_pixelsize(?MODULE, 0.07)),
-    ?assertEqual(6, global_grid:zoom_for_pixelsize(?MODULE, 0.01)),
-    ?assertEqual(9, global_grid:zoom_for_pixelsize(?MODULE, 0.001)).
+    ?assertEqual(0, tile_grid:zoom_for_pixelsize(?MODULE, 1000000)),
+    ?assertEqual(0, tile_grid:zoom_for_pixelsize(?MODULE, 100000)),
+    ?assertEqual(0, tile_grid:zoom_for_pixelsize(?MODULE, 1)),
+    ?assertEqual(2, tile_grid:zoom_for_pixelsize(?MODULE, 0.1)),
+    ?assertEqual(3, tile_grid:zoom_for_pixelsize(?MODULE, 0.07)),
+    ?assertEqual(6, tile_grid:zoom_for_pixelsize(?MODULE, 0.01)),
+    ?assertEqual(9, tile_grid:zoom_for_pixelsize(?MODULE, 0.001)).
 
 coordinates_to_pixels_test() ->
     math_utils:xy_assert({256.0, 128.0}, 
@@ -134,10 +135,10 @@ coordinates_to_pixels_test() ->
 
 coordinates_to_tile_test() ->
     ?assertMatch({0, 0}, 
-                 global_grid:coordinates_to_tile(?MODULE, 0, 0, 0)),
+                 tile_grid:coordinates_to_tile(?MODULE, 0, 0, 0)),
     ?assertMatch({1, 0}, 
-                 global_grid:coordinates_to_tile(?MODULE, 119.7, 39.9, 0)),
+                 tile_grid:coordinates_to_tile(?MODULE, 119.7, 39.9, 0)),
     ?assertMatch({872939, 378361}, 
-                 global_grid:coordinates_to_tile(?MODULE, 119.7, 39.9, 19)).
+                 tile_grid:coordinates_to_tile(?MODULE, 119.7, 39.9, 19)).
 
 -endif.

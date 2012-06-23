@@ -11,14 +11,14 @@
 %%% @end
 %%% ----------------------------------------------------------------------------
 
--module(global_grid).
+-module(tile_grid).
 
 -include("global_grid.hrl").
 
 -export([behaviour_info/1]).
 
 %% API
--export([geo_query/3,
+-export([geo_query/4,
          calc_tminmax/2,
          quadtree/1]).
 
@@ -85,18 +85,38 @@ behaviour_info(_Other) ->
 %% raster coordinates and x/y shifts (for border tiles). If the querysize is not given, the extent is 
 %% returned in the native resolution of dataset ds.
 %% {LeftTopX, LeftTopY, RightBottomX, RightBottomY} = _Bound
--spec geo_query(img_info(), bound(), non_neg_integer()) -> {bandregion(), bandregion()}.
-geo_query(ImgInfo, {Ulx, Uly, Lrx, Lry}, QuerySize) ->
-    {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize} = ImgInfo,
-    Rx = erlang:trunc( (Ulx - OriginX) / PixelSizeX + 0.001 ),
-    Ry = erlang:trunc( (Uly - OriginY) / PixelSizeY + 0.001 ),
-    Rxsize = erlang:trunc( (Lrx - Ulx) / PixelSizeX + 0.5 ),
-    Rysize = erlang:trunc( (Lry - Uly) / PixelSizeY + 0.5 ),
+-spec geo_query(module(), img_info(), bound(), non_neg_integer()) -> {bandregion(), bandregion()}.
+geo_query(ProfileMod, ImgInfo, {Tx, Ty, Tz}, QuerySize) ->
+    {MinX, MinY, MaxX, MaxY} = ProfileMod:tile_bounds({Tx, Ty, Tz}),
+    Bound = {MinX, MaxY, MaxX, MinY},
+    geo_query(ImgInfo, Bound, QuerySize).
 
-    {NewRx, NewWx, ResWxsize, ResRxsize} = adjust_byedge(Rx, Rxsize, RasterXSize, QuerySize),
-    {NewRy, NewWy, ResWysize, ResRysize} = adjust_byedge(Ry, Rysize, RasterYSize, QuerySize),
 
-    {{NewRx, NewRy, ResRxsize, ResRysize}, {NewWx, NewWy, ResWxsize, ResWysize}}.
+%% @doc Get the tiles range of the region enclosure for a zoom level, 
+%% in a specified projection profile
+-spec calc_tminmax(module(), enclosure(float())) -> {byte(), enclosure(integer())}.
+calc_tminmax(ProfileMod, ImgInfo) ->
+    {_Tminz, Tmaxz} = calc_zoomlevel_range(ProfileMod, ImgInfo),
+    Zoom = Tmaxz,
+
+    {Ominx, Ominy, Omaxx, Omaxy} = calc_img_enclosure(ImgInfo),
+    {Tminx, Tminy} = coordinates_to_tile( ProfileMod, Ominx, Ominy, Zoom ),
+    {Tmaxx, Tmaxy} = coordinates_to_tile( ProfileMod, Omaxx, Omaxy, Zoom ),
+    MaxTileWidthOrHeight = ProfileMod:max_tile_extent(Zoom),
+    EnclosureOfZoom = {
+        max(0, Tminx), max(0, Tminy), 
+        min(MaxTileWidthOrHeight, Tmaxx), min(MaxTileWidthOrHeight, Tmaxy)
+    },
+    {Zoom, EnclosureOfZoom}.
+
+
+%% @doc Converts TMS tile coordinates to Microsoft QuadTree
+%% http://msdn.microsoft.com/en-us/library/bb259689.aspx
+-spec(quadtree({TX::integer(), TY::integer(), Zoom::byte()}) -> binary()).
+quadtree({TX, TY, Zoom}) ->
+    % Ty = (1 bsl Zoom) - 1 - TY, % 2 ** Zoom - TY
+    Ty = global_mercator:max_tile_extent(Zoom) - TY,
+    quadtree({TX, Ty, Zoom}, <<>>).
 
 
 %% =============================================================================
@@ -128,23 +148,6 @@ cfi(I) ->
     end.
 
 
-%% @doc Get the tiles range of the region enclosure for a zoom level, 
-%% in a specified projection profile
--spec calc_tminmax(module(), enclosure(float())) -> {byte(), enclosure(integer())}.
-calc_tminmax(ProfileMod, ImgInfo) ->
-    {_Tminz, Tmaxz} = calc_zoomlevel_range(ProfileMod, ImgInfo),
-    Zoom = Tmaxz,
-
-    {Ominx, Ominy, Omaxx, Omaxy} = calc_img_enclosure(ImgInfo),
-    {Tminx, Tminy} = coordinates_to_tile( ProfileMod, Ominx, Ominy, Zoom ),
-    {Tmaxx, Tmaxy} = coordinates_to_tile( ProfileMod, Omaxx, Omaxy, Zoom ),
-    MaxTileWidthOrHeight = ProfileMod:max_tile_extent(Zoom),
-    EnclosureOfZoom = {
-        max(0, Tminx), max(0, Tminy), 
-        min(MaxTileWidthOrHeight, Tmaxx), min(MaxTileWidthOrHeight, Tmaxy)
-    },
-    {Zoom, EnclosureOfZoom}.
-
 %% @doc Returns tile for given coordinates
 %% Returns the tile for zoom which covers given lat/lon coordinates
 -spec coordinates_to_tile(module(), float(), float(), byte()) -> {integer(), integer()}.
@@ -152,14 +155,6 @@ coordinates_to_tile(ProfileMod, CoordX, CoordY, Zoom) ->
     {PixelX, PixelY} = ProfileMod:coordinates_to_pixels(CoordX, CoordY, Zoom),
     pixels_to_tile(PixelX, PixelY).
 
-
-%% @doc Converts TMS tile coordinates to Microsoft QuadTree
-%% http://msdn.microsoft.com/en-us/library/bb259689.aspx
--spec(quadtree({TX::integer(), TY::integer(), Zoom::byte()}) -> binary()).
-quadtree({TX, TY, Zoom}) ->
-    % Ty = (1 bsl Zoom) - 1 - TY, % 2 ** Zoom - TY
-    Ty = global_mercator:max_tile_extent(Zoom) - TY,
-    quadtree({TX, Ty, Zoom}, <<>>).
 
 %% =============================================================================
 %% private functions
@@ -175,11 +170,29 @@ calc_zoomlevel_range(ProfileMod, ImgInfo) ->
     Tmaxz = zoom_for_pixelsize(ProfileMod, PixelSizeX ),
     {Tminz, Tmaxz}.
 
+
 %% @doc Returns coordinates of the tile covering region in pixel coordinates
 pixels_to_tile(PixelX, PixelY) ->
     TileX = erlang:trunc( math_utils:ceiling( PixelX / float(?TILE_SIZE) ) - 1),
     TileY = erlang:trunc( math_utils:ceiling( PixelY / float(?TILE_SIZE) ) - 1),
     {TileX, TileY}.
+
+
+%% @private
+-spec geo_query(img_info(), bound(), non_neg_integer()) -> {bandregion(), bandregion()}.
+geo_query(ImgInfo, Bound, QuerySize) ->
+    {Ulx, Uly, Lrx, Lry} = Bound,
+    {OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize} = ImgInfo,
+    Rx = erlang:trunc( (Ulx - OriginX) / PixelSizeX + 0.001 ),
+    Ry = erlang:trunc( (Uly - OriginY) / PixelSizeY + 0.001 ),
+    Rxsize = erlang:trunc( (Lrx - Ulx) / PixelSizeX + 0.5 ),
+    Rysize = erlang:trunc( (Lry - Uly) / PixelSizeY + 0.5 ),
+
+    {NewRx, NewWx, ResWxsize, ResRxsize} = adjust_byedge(Rx, Rxsize, RasterXSize, QuerySize),
+    {NewRy, NewWy, ResWysize, ResRysize} = adjust_byedge(Ry, Rysize, RasterYSize, QuerySize),
+
+    {{NewRx, NewRy, ResRxsize, ResRysize}, {NewWx, NewWy, ResWxsize, ResWysize}}.
+
 
 %% @doc Coordinates should not go out of the bounds of the raster
 %% @private
@@ -266,7 +279,7 @@ geodetic_geo_query_test() ->
     {OriginX, OriginY} = {117.0439031173947, 35.138356923616534},
     {PixelSizeX, PixelSizeY} = { 2.0080973914208664e-06, -2.0080973914208664e-06},
     {RasterXSize, RasterYSize} = {10933, 8982},
-    Bound = {117.06344604492188, 35.11985778808594, 117.06413269042969, 35.12054443359375},
+    %Tile = {432630, 182219, 18},
     Enclosure = {117.06344604492188,35.12054443359375,117.06413269042969,35.11985778808594},
     {Rb, Wb} = geo_query({OriginX, OriginY, PixelSizeX, PixelSizeY, RasterXSize, RasterYSize}, Enclosure, 0),
     io:format("rb: ~p, wb: ~p~n", [Rb, Wb]),
@@ -283,7 +296,6 @@ mercator_geo_query_test() ->
     ?assertEqual({49682152, 0, -49680575, -14444498}, Wb).
 
 pixels_to_tile_test() ->
-    io:format("P2T: ~p~n", [pixels_to_tile(0,0)]),
     math_utils:xy_assert({-1, -1}, pixels_to_tile(0, 0)),
     math_utils:xy_assert({0, 0}, pixels_to_tile(10, 10)),
     math_utils:xy_assert({3, 3}, pixels_to_tile(1000, 1000)),

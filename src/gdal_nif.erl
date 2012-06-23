@@ -1,8 +1,8 @@
 -module(gdal_nif).
 
--export([build_out_ds_srs_wkt/1,
+-export([get_srs_wkt_of/1,
          get_meta/1,
-         create_warped_vrt/2,
+         create_warped_vrtimg/2,
          close_img/1]).
 
 -export([copyout_rawtile/3,
@@ -39,13 +39,14 @@ init() ->
               end,
     erlang:load_nif(filename:join(PrivDir, ?MODULE), 0).
 
--spec build_out_ds_srs_wkt(EpspCode::non_neg_integer()) -> {ok, string()} | {error, string()}.
-build_out_ds_srs_wkt(_EpsgCode) ->
+-spec get_srs_wkt_of(EpspCode::non_neg_integer()) -> {ok, string()} | {error, string()}.
+get_srs_wkt_of(_EpsgCode) ->
     ?nif_stub.
 
 %% @doc build out_ds in global world of EPSP:Code projection
--spec create_warped_vrt(ImgFileName::iolist(), VrtEpsgCode::non_neg_integer()) -> {ok, img(), global_grid:img_info()} | {error, string()}.
-create_warped_vrt(_ImgFileName, _VrtEpsgCode) ->
+-spec create_warped_vrtimg(ImgFileName::iolist(), VrtEpsgCode::non_neg_integer()) ->
+    {ok, img(), tile_grid:img_info()} | {error, string()}.
+create_warped_vrtimg(_ImgFileName, _VrtEpsgCode) ->
     ?nif_stub.
 
 -spec close_img(Img::img()) -> ok | {error, string()}.
@@ -56,11 +57,13 @@ close_img(_Img) ->
 get_meta(_ImgRef) ->
     ?nif_stub.
 
--spec copyout_rawtile(img(), global_grid:bandregion(), global_grid:bandregion()) -> {ok, rawtile()} | {error, string()}.
+%% @doc just copy the raw data out from img, which prepare for building a tile
+-spec copyout_rawtile(img(), tile_grid:bandregion(), tile_grid:bandregion()) -> 
+    {ok, rawtile()} | {error, string()}.
 copyout_rawtile(_Img, _R, _W) ->
     ?nif_stub.
 
-%% @doc build a Memory GDALDataset for tile
+%% @doc build a tile Memory GDALDataset from raw data
 -spec build_tile(RawTile::rawtile()) -> {ok, tile()} | {error, string()}.
 build_tile(_RawTile) ->
     ?nif_stub.
@@ -72,7 +75,8 @@ save_tile(_Tile, _TileFileName) ->
 
 %% @doc transform tile to binary as GDAL raster format code:
 %% http://gdal.org/formats_list.html
--spec tile_to_binary(Tile::tile(), TileFileName::iolist(), RasterFormatCode::string()) -> {ok, binary()} | {error, string()}.
+-spec tile_to_binary(Tile::tile(), TileFileName::iolist(), RasterFormatCode::string()) ->
+    {ok, binary()} | {error, string()}.
 tile_to_binary(_Tile, _TileFileName, _RasterFormatCode) ->
     ?nif_stub.
 
@@ -82,7 +86,7 @@ tile_to_binary(_Tile, _TileFileName, _RasterFormatCode) ->
 -ifdef(TEST).
 
 basic_test() ->
-    {ok, SrsWkt} = build_out_ds_srs_wkt(4326),
+    {ok, SrsWkt} = get_srs_wkt_of(4326),
     ExpectedWkt = "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4326\"]]",
     ?assertEqual(ExpectedWkt, SrsWkt).
 

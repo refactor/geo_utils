@@ -67,9 +67,9 @@ static ERL_NIF_TERM ATOM_ERROR;
 static ERL_NIF_TERM ATOM_NOT_OPEN;
 
 // Prototypes
-static ERL_NIF_TERM gdal_nif_build_out_ds_srs_wkt(ErlNifEnv* env, int argc,
+static ERL_NIF_TERM gdal_nif_get_srs_wkt_of(ErlNifEnv* env, int argc,
                                                   const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM gdal_nif_create_warped_vrt(ErlNifEnv* env, int argc,
+static ERL_NIF_TERM gdal_nif_create_warped_vrtimg(ErlNifEnv* env, int argc,
                                                const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_close_img(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_copyout_rawtile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -90,8 +90,8 @@ static ERL_NIF_TERM make_error_msg(ErlNifEnv* env, const char* msg);
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"build_out_ds_srs_wkt", 1, gdal_nif_build_out_ds_srs_wkt},
-    {"create_warped_vrt", 2, gdal_nif_create_warped_vrt},
+    {"get_srs_wkt_of", 1, gdal_nif_get_srs_wkt_of},
+    {"create_warped_vrtimg", 2, gdal_nif_create_warped_vrtimg},
     {"close_img", 1, gdal_nif_close_img},
     {"copyout_rawtile", 3, gdal_nif_copyout_rawtile},
     {"build_tile", 1, gdal_nif_build_tile},
@@ -101,12 +101,12 @@ static ErlNifFunc nif_funcs[] =
 };
 
 // returned WKT string should be free by OGRFree or CPLFree
-static char* build_srs_wkt_for(int epsg_code) {
-    OGRSpatialReferenceH out_srs = OSRNewSpatialReference(NULL);
-    OSRImportFromEPSG(out_srs, epsg_code);
-    char* out_srs_wkt;
-    OSRExportToWkt(out_srs, &out_srs_wkt);
-    return out_srs_wkt;
+static char* get_wkt_of(int epsg_code) {
+    OGRSpatialReferenceH srs = OSRNewSpatialReference(NULL);
+    OSRImportFromEPSG(srs, epsg_code);
+    char* srs_wkt;
+    OSRExportToWkt(srs, &srs_wkt);
+    return srs_wkt;
 }
 
 static int get_bandregion_from(ErlNifEnv* env, const ERL_NIF_TERM *pterm, bandregion* pbr) 
@@ -124,15 +124,15 @@ static int get_bandregion_from(ErlNifEnv* env, const ERL_NIF_TERM *pterm, bandre
     return res;
 }
 
-static ERL_NIF_TERM gdal_nif_build_out_ds_srs_wkt(ErlNifEnv* env, int argc,
+static ERL_NIF_TERM gdal_nif_get_srs_wkt_of(ErlNifEnv* env, int argc,
                                    const ERL_NIF_TERM argv[])
 {
     int epsg_code;
     if (enif_get_int(env, argv[0], &epsg_code)) {
-        char* wkt = build_srs_wkt_for(epsg_code);
+        char* wkt = get_wkt_of(epsg_code);
         ERL_NIF_TERM res = enif_make_tuple2(env, 
-                ATOM_OK,
-                enif_make_string(env, wkt ,ERL_NIF_LATIN1));
+                                            ATOM_OK,
+                                            enif_make_string(env, wkt ,ERL_NIF_LATIN1));
         OGRFree(wkt);
         return res;
     }
@@ -143,11 +143,12 @@ static ERL_NIF_TERM gdal_nif_build_out_ds_srs_wkt(ErlNifEnv* env, int argc,
 
 
 // build out_ds
-static ERL_NIF_TERM gdal_nif_create_warped_vrt(ErlNifEnv* env, int argc,
+static ERL_NIF_TERM gdal_nif_create_warped_vrtimg(ErlNifEnv* env, int argc,
                                           const ERL_NIF_TERM argv[])
 {
     ErlNifBinary filenameBin;
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &filenameBin) || (filenameBin.size >= FILENAME_LEN)) {
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &filenameBin) || 
+        (filenameBin.size >= FILENAME_LEN)) {
         return make_error_msg(env, "filename error, maybe too long");
     }
 
@@ -217,7 +218,7 @@ static ERL_NIF_TERM gdal_nif_create_warped_vrt(ErlNifEnv* env, int argc,
     if (in_srs_wkt == NULL && GDALGetGCPCount(in_ds) != 0) {
         in_srs_wkt = GDALGetGCPProjection(in_ds);
     }
-    char* out_srs_wkt = build_srs_wkt_for(epsg_code);
+    char* out_srs_wkt = get_wkt_of(epsg_code);
     GDALDatasetH out_ds = GDALAutoCreateWarpedVRT(in_ds, 
                                                   in_srs_wkt, 
                                                   out_srs_wkt, 
