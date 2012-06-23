@@ -15,8 +15,6 @@
 
 -include("global_grid.hrl").
 
--export([behaviour_info/1]).
-
 %% API
 -export([geo_query/4,
          calc_tminmax/2,
@@ -38,17 +36,6 @@
               tile_info/0,
               img_info/0]).
 
--spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
-behaviour_info(callbacks) ->
-    [{tile_bounds, 1},          % Returns bounds of the given tile
-     {coordinates_to_pixels, 3},% for coordinates_to_tiles which return tile of 
-                                % given coordinates in differnent projection or tile profile
-     {resolution, 1},           % Resolution for given zoom level
-     {max_tile_extent, 1},      % Calculate max width(or height) of tile at specified zoom level
-                                % there is different calutaions for different profiles
-     {epsg_code, 0}];           % EPSG code for Projection 
-behaviour_info(_Other) ->
-    undefined.
 
 
 %% {LeftTopX, LeftTopY, RightBottomX, RightBottomY} = Bound
@@ -85,7 +72,7 @@ behaviour_info(_Other) ->
 %% raster coordinates and x/y shifts (for border tiles). If the querysize is not given, the extent is 
 %% returned in the native resolution of dataset ds.
 %% {LeftTopX, LeftTopY, RightBottomX, RightBottomY} = _Bound
--spec geo_query(module(), img_info(), bound(), non_neg_integer()) -> {bandregion(), bandregion()}.
+-spec geo_query(module(), img_info(), tile_info(), non_neg_integer()) -> {bandregion(), bandregion()}.
 geo_query(ProfileMod, ImgInfo, {Tx, Ty, Tz}, QuerySize) ->
     {MinX, MinY, MaxX, MaxY} = ProfileMod:tile_bounds({Tx, Ty, Tz}),
     Bound = {MinX, MaxY, MaxX, MinY},
@@ -94,7 +81,7 @@ geo_query(ProfileMod, ImgInfo, {Tx, Ty, Tz}, QuerySize) ->
 
 %% @doc Get the tiles range of the region enclosure for a zoom level, 
 %% in a specified projection profile
--spec calc_tminmax(module(), enclosure(float())) -> {byte(), enclosure(integer())}.
+-spec calc_tminmax(module(), img_info()) -> {byte(), enclosure(integer())}.
 calc_tminmax(ProfileMod, ImgInfo) ->
     {_Tminz, Tmaxz} = calc_zoomlevel_range(ProfileMod, ImgInfo),
     Zoom = Tmaxz,

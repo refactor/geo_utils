@@ -77,15 +77,15 @@
 %% -----------------------------------------------------------------------------
 
 -module(global_mercator).
--behaviour(tile_grid).
+-behaviour(map_profile).
 
 -include("global_grid.hrl").
 
--export([tile_bounds/1, 
-         coordinates_to_pixels/3,
+-export([epsg_code/0,
+         tile_bounds/1, 
          resolution/1, 
          max_tile_extent/1,
-         epsg_code/0]).
+         coordinates_to_pixels/3]).
 
 %-define(EARTH_RADIUS, 6378137).
 %-define(PI, math:pi()).
@@ -109,12 +109,18 @@
 %% callback functions
 %% =============================================================================
 
+%% @doc Spherical Mercator, EPSG:3785
+-spec epsg_code() -> non_neg_integer().
+epsg_code() ->
+    3785.
+
 %% @doc Returns bounds of the given tile in EPSG:3785 or EPSG:900913 coordinates
--spec tile_bounds(tile_grid:tile_inf()) -> tile_grid:bound().
+-spec tile_bounds(tile_grid:tile_info()) -> tile_grid:bound().
 tile_bounds({TX, TY, Zoom}) ->
     {MinX, MinY} = pixels_to_meters(TX * ?TILE_SIZE, TY * ?TILE_SIZE, Zoom),
     {MaxX, MaxY} = pixels_to_meters((TX + 1) * ?TILE_SIZE, (TY + 1) * ?TILE_SIZE, Zoom),
     {MinX, MinY, MaxX, MaxY}.
+
 
 %% @doc Resolution (meters/pixel) for given zoom level (measured at Equator)
 %% INITIAL_RESOLUTION / (2 ** Zoom)
@@ -122,18 +128,13 @@ tile_bounds({TX, TY, Zoom}) ->
 resolution(Zoom) ->
     ?INITIAL_RESOLUTION / (1 bsl Zoom).
 
-%% @doc Spherical Mercator, EPSG:3785
--spec epsg_code() -> non_neg_integer().
-epsg_code() ->
-    3785.
-
 %% @doc calculate max tile-width or tile-height in specified zoom level
 %% 2 ** Zoom - 1
+-spec max_tile_extent(byte()) -> non_neg_integer().
 max_tile_extent(Zoom) ->
     (1 bsl Zoom) - 1.
 
-%% ----------------------------- protected functions ---------------------------
-%%
+
 %% @doc Converts EPSG:3785 to pyramid pixel coordinates in given zoom level
 %% MetersToPixels, for EPSG:3785
 %% This is a intermediate function, called by coordinates_to_tile
@@ -143,6 +144,7 @@ coordinates_to_pixels(MX, MY, Zoom) ->
     PX = (MX + ?ORIGIN_SHIFT) / Resolution,
     PY = (MY + ?ORIGIN_SHIFT) / Resolution,
     {PX, PY}.
+
 
 %% =============================================================================
 %% private functions

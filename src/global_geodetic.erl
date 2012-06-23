@@ -36,15 +36,15 @@
 %% -----------------------------------------------------------------------------
 
 -module(global_geodetic).
--behaviour(tile_grid).
+-behaviour(map_profile).
 
 -include("global_grid.hrl").
 
--export([tile_bounds/1, 
-         coordinates_to_pixels/3,
+-export([epsg_code/0,
+         tile_bounds/1, 
          resolution/1, 
          max_tile_extent/1,
-         epsg_code/0]).
+         coordinates_to_pixels/3]).
 
 
 -ifdef(TEST).
@@ -54,6 +54,12 @@
 %% =============================================================================
 %% callback functions
 %% =============================================================================
+
+%% @doc WGS84, EPSG:4326
+-spec epsg_code() -> non_neg_integer().
+epsg_code() ->
+    4326.
+
 
 %% @doc Returns bounds of the given tile
 -spec tile_bounds(tile_grid:tile_info()) -> tile_grid:bound().
@@ -65,6 +71,7 @@ tile_bounds({TX, TY, Zoom}) ->
     MaxY = (TY + 1) * Res - 90,
     {MinX, MinY, MaxX, MaxY}.
 
+
 %% @doc Resolution (arc/pixel) for given zoom level (measured at Equator)
 %%  provide <TileSet>s with units-per-pixel
 %%  180 / ?TILE_SIZE / (2 ** Zoom)
@@ -72,13 +79,10 @@ tile_bounds({TX, TY, Zoom}) ->
 resolution(Zoom) ->
     180.0 / ?TILE_SIZE / (1 bsl Zoom).
 
-%% @doc WGS84, EPSG:4326
--spec epsg_code() -> non_neg_integer().
-epsg_code() ->
-    4326.
 
 %% @doc calculate max tile-width or tile-height in specified zoom level
 %% 2 ** (Zoom + 1) - 1
+-spec max_tile_extent(byte()) -> non_neg_integer().
 max_tile_extent(Zoom) ->
     (1 bsl  (Zoom + 1)) - 1.
 
@@ -93,6 +97,7 @@ coordinates_to_pixels(Longitude, Latitude, Zoom) ->
     Px = (180.0 + Longitude) / Res,
     Py = (90.0 + Latitude) / Res,
     {Px, Py}.
+
 
 %% =============================================================================
 %% EUnit tests
