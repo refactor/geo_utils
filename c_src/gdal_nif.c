@@ -61,32 +61,24 @@ typedef struct
 
     GDALDatasetH dstile;
 } gdal_tile_handle;
+
+
 // Atoms (initialized in on_load)
 static ERL_NIF_TERM ATOM_OK;
 static ERL_NIF_TERM ATOM_ERROR;
 static ERL_NIF_TERM ATOM_NOT_OPEN;
 
+
 // Prototypes
-static ERL_NIF_TERM gdal_nif_get_srs_wkt_of(ErlNifEnv* env, int argc,
-                                                  const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM gdal_nif_create_warped_vrtimg(ErlNifEnv* env, int argc,
-                                               const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM gdal_nif_get_srs_wkt_of(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM gdal_nif_create_warped_vrtimg(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_close_img(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_copyout_rawtile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_build_tile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_save_tile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_tile_to_binary(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM gdal_nif_get_meta(ErlNifEnv* env, int argc,
-                                      const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM gdal_nif_get_meta(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-
-static void destroy_img_handle(gdal_img_handle* handle);
-static void gdal_nif_img_resource_cleanup(ErlNifEnv* env, void* arg);
-static void gdal_nif_rawtile_resource_cleanup(ErlNifEnv* env, void* arg);
-static void gdal_nif_tile_resource_cleanup(ErlNifEnv* env, void* arg);
-static void free_temp_rawdata(gdal_rawtile_handle* hTile);
-static ERL_NIF_TERM get_imginfo(ErlNifEnv* env, GDALDatasetH ds);
-static ERL_NIF_TERM make_error_msg(ErlNifEnv* env, const char* msg);
 
 static ErlNifFunc nif_funcs[] =
 {
@@ -99,6 +91,17 @@ static ErlNifFunc nif_funcs[] =
     {"tile_to_binary", 3, gdal_nif_tile_to_binary},
     {"get_meta", 1, gdal_nif_get_meta}
 };
+
+
+// private
+static void destroy_img_handle(gdal_img_handle* handle);
+static void gdal_nif_img_resource_cleanup(ErlNifEnv* env, void* arg);
+static void gdal_nif_rawtile_resource_cleanup(ErlNifEnv* env, void* arg);
+static void gdal_nif_tile_resource_cleanup(ErlNifEnv* env, void* arg);
+static void free_temp_rawdata(gdal_rawtile_handle* hTile);
+static ERL_NIF_TERM get_imginfo(ErlNifEnv* env, GDALDatasetH ds);
+static ERL_NIF_TERM make_error_msg(ErlNifEnv* env, const char* msg);
+
 
 // returned WKT string should be free by OGRFree or CPLFree
 static char* get_wkt_of(int epsg_code) {
@@ -307,7 +310,8 @@ static ERL_NIF_TERM gdal_nif_copyout_rawtile(ErlNifEnv* env, int argc, const ERL
 
     // read dataset data
     int datasz = w.xsize * w.ysize;
-    DEBUG("wxsz: %d, wysz: %d, bandscount: %d, CPLCalloc size=%zu\r\n", w.xsize, w.ysize, hImg->dataBandsCount, datasz * hImg->dataBandsCount);
+    DEBUG("wxsz: %d, wysz: %d, bandscount: %d, CPLCalloc size=%zu\r\n", 
+          w.xsize, w.ysize, hImg->dataBandsCount, datasz * hImg->dataBandsCount);
     hRawtile->data = (GByte*)CPLCalloc(datasz * hImg->dataBandsCount, sizeof(*hRawtile->data));
 
     int panBandMap[hImg->dataBandsCount];
@@ -317,7 +321,6 @@ static ERL_NIF_TERM gdal_nif_copyout_rawtile(ErlNifEnv* env, int argc, const ERL
                                       w.xsize, w.ysize, GDT_Byte, hImg->dataBandsCount, panBandMap, 
                                       0, 0, 0);
     if (eErr == CE_Failure) {
-//        free_tile(hRawtile);
         char buf[128] = "DatasetRasterIO read failed: ";
         const char* errmsg = CPLGetLastErrorMsg();
         strncat(buf, errmsg, strlen(errmsg));
@@ -331,7 +334,6 @@ static ERL_NIF_TERM gdal_nif_copyout_rawtile(ErlNifEnv* env, int argc, const ERL
                         hRawtile->alpha, w.xsize, w.ysize, 
                         GDT_Byte, 0, 0);
     if (eErr == CE_Failure) {
-//        free_tile(hRawtile);
         char buf[128] = "DatasetRasterIO read failed: ";
         const char* errmsg = CPLGetLastErrorMsg();
         strncat(buf, errmsg, strlen(errmsg));
@@ -370,7 +372,8 @@ static ERL_NIF_TERM gdal_nif_build_tile(ErlNifEnv* env, int argc, const ERL_NIF_
     if (hRawtile->tilesize == hRawtile->querysize) {
         eErr = write_data_and_alpha_to_raster(dstile, 
                                               xoffset, yoffset, xsize, ysize, 
-                                              data, alpha, dataBandsCount, tilebands);
+                                              data, alpha, 
+                                              dataBandsCount, tilebands);
         if (eErr == CE_Failure) {
             return make_error_msg(env, "write_data_and_alpha_to_raster");
         }
@@ -387,7 +390,10 @@ static ERL_NIF_TERM gdal_nif_build_tile(ErlNifEnv* env, int argc, const ERL_NIF_
             return make_error_msg(env, "create dsquery");
         }
 
-        eErr = write_data_and_alpha_to_raster(dsquery, xoffset, yoffset, xsize, ysize, data, alpha, dataBandsCount, tilebands);
+        eErr = write_data_and_alpha_to_raster(dsquery, 
+                                              xoffset, yoffset, xsize, ysize, 
+                                              data, alpha, 
+                                              dataBandsCount, tilebands);
         if (eErr == CE_Failure) {
             GDALClose(dsquery);
             return make_error_msg(env, "write data and alpha to raster");

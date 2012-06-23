@@ -44,7 +44,8 @@ CPLErr write_quadtree_tile_to_raster(GDALDatasetH dsquery,
     int tilexsize = GDALGetRasterXSize(dstile);
     int tileysize = GDALGetRasterYSize(dstile);
     int tilebands = GDALGetRasterCount(dstile);
-    DEBUG("quadtree tile WriteRaster: xsize: %d, ysize: %d, bands: %d\r\n", tilexsize, tileysize, tilebands);
+    DEBUG("quadtree tile WriteRaster: xsize: %d, ysize: %d, bands: %d\r\n", 
+            tilexsize, tileysize, tilebands);
     
     int band_list[tilebands];
     fill_pband_list(tilebands, band_list);
@@ -86,7 +87,8 @@ CPLErr write_data_and_alpha_to_raster(GDALDatasetH dsquery,
                                       dataBandsCount, band_list,
                                       0, 0, 0);
     if (eErr == CE_Failure) {
-        DEBUG("data WriteRaster(xoffset: %d, yoffset: %d, xsize: %d, ysize: %d, data: %p) for dsquery failed: %s\r\n", 
+        DEBUG("data WriteRaster(xoffset: %d, yoffset: %d, xsize: %d, ysize: %d, data: %p)"
+               " for dsquery failed: %s\r\n", 
                 xoffset, yoffset, xsize, ysize, data,
                 CPLGetLastErrorMsg());
 
@@ -108,9 +110,10 @@ CPLErr write_data_and_alpha_to_raster(GDALDatasetH dsquery,
 CPLErr scale_query_to_tile(GDALDatasetH dsquery, GDALDatasetH dstile, const char* options_resampling)
 {
     int querysize = GDALGetRasterXSize(dsquery);
-    int tilesize = GDALGetRasterXSize(dstile);
+    int tilesize  = GDALGetRasterXSize(dstile);
     int tilebands = GDALGetRasterCount(dstile);
-    DEBUG("scales down to the tile dataset... querysize: %d, tilesize: %d, tilebands: %d\r\n", querysize, tilesize, tilebands);
+    DEBUG("scales down to the tile dataset... querysize: %d, tilesize: %d, tilebands: %d\r\n", 
+            querysize, tilesize, tilebands);
 
     if (options_resampling && strcmp("average", options_resampling) == 0) {
         DEBUG("Sample Average\r\n");
@@ -118,9 +121,14 @@ CPLErr scale_query_to_tile(GDALDatasetH dsquery, GDALDatasetH dstile, const char
             CPLErrorReset();
 
             GDALRasterBandH overviewBand = GDALGetRasterBand(dstile, i);
-            CPLErr eErr = GDALRegenerateOverviews(GDALGetRasterBand(dsquery, i), 1, &overviewBand, "average", NULL, NULL);
+            CPLErr eErr = GDALRegenerateOverviews(GDALGetRasterBand(dsquery, i), 
+                                                  1, 
+                                                  &overviewBand, 
+                                                  "average", 
+                                                  NULL, NULL);
             if (eErr != CE_None) {
-                DEBUG("GDALRegenerateOverviews failed on (band: %d), error: %s\r\n", i, CPLGetLastErrorMsg());
+                DEBUG("GDALRegenerateOverviews failed on (band: %d), error: %s\r\n", 
+                        i, CPLGetLastErrorMsg());
                 return eErr;
             }
         }
@@ -132,10 +140,14 @@ CPLErr scale_query_to_tile(GDALDatasetH dsquery, GDALDatasetH dstile, const char
     else {
         DEBUG("other sampling algorithms\r\n");
         // Other algorithms are implemented by gdal.ReprojectImage().
-        GDALSetGeoTransform(dsquery, 
-                (double []){0.0, tilesize / ((double)querysize), 0.0, 0.0, 0.0, tilesize / ((double)querysize)});
-        GDALSetGeoTransform(dstile, 
-                (double []){0.0, 1.0, 0.0, 0.0, 0.0, 1.0});
+        GDALSetGeoTransform(dsquery, (double []){
+                                            0.0, 
+                                            tilesize / ((double)querysize), 
+                                            0.0, 
+                                            0.0, 
+                                            0.0, 
+                                            tilesize / ((double)querysize)});
+        GDALSetGeoTransform(dstile, (double []){0.0, 1.0, 0.0, 0.0, 0.0, 1.0});
 
         CPLErrorReset();
         CPLErr eErr = GDALReprojectImage(dsquery, NULL, 
