@@ -75,7 +75,9 @@ CPLErr write_data_and_alpha_to_raster(GDALDatasetH dsquery,
                                       GByte* data, GByte* alpha, 
                                       int dataBandsCount, int tilebands) 
 {
-    DEBUG("data and alpha WriteRaster\r\n");
+    DEBUG("data and alpha WriteRaster"
+          "(xoff: %d, yoff: %d, xsize: %d, ysize: %d, bandCt: %d, bands: %d)\r\n",
+          xoffset, yoffset, xsize, ysize, dataBandsCount, tilebands);
 
     int band_list[dataBandsCount];
     fill_pband_list(dataBandsCount, band_list);
@@ -87,10 +89,7 @@ CPLErr write_data_and_alpha_to_raster(GDALDatasetH dsquery,
                                       dataBandsCount, band_list,
                                       0, 0, 0);
     if (eErr == CE_Failure) {
-        DEBUG("data WriteRaster(xoffset: %d, yoffset: %d, xsize: %d, ysize: %d, data: %p)"
-               " for dsquery failed: %s\r\n", 
-                xoffset, yoffset, xsize, ysize, data,
-                CPLGetLastErrorMsg());
+        DEBUG("data WriteRaster failed: %s\r\n", CPLGetLastErrorMsg());
 
         return eErr;
     }

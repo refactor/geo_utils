@@ -279,10 +279,10 @@ static ERL_NIF_TERM get_imginfo(ErlNifEnv* env, GDALDatasetH out_ds) {
 
 static ERL_NIF_TERM gdal_nif_copyout_rawtile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    GDALDatasetH ds = NULL;
+    GDALDatasetH img_ds = NULL;
     gdal_img_handle* hImg = NULL;
     if (enif_get_resource(env, argv[0], gdal_img_RESOURCE, (void**)&hImg)) {
-        ds = hImg->out_ds;
+        img_ds = hImg->out_ds;
     }
     else {
         return enif_make_badarg(env);
@@ -308,17 +308,20 @@ static ERL_NIF_TERM gdal_nif_copyout_rawtile(ErlNifEnv* env, int argc, const ERL
     ERL_NIF_TERM res = enif_make_resource(env, hRawtile);
     enif_release_resource(hRawtile);  // hRawtile resource now only owned by "Erlang"
 
-    // read dataset data
-    int datasz = w.xsize * w.ysize;
-    DEBUG("wxsz: %d, wysz: %d, bandscount: %d, CPLCalloc size=%zu\r\n", 
-          w.xsize, w.ysize, hImg->dataBandsCount, datasz * hImg->dataBandsCount);
-    hRawtile->data = (GByte*)CPLCalloc(datasz * hImg->dataBandsCount, sizeof(*hRawtile->data));
+    // data buffer size when read from img AND write to tile 
+    int bufsize = w.xsize * w.ysize;
+    DEBUG("r.xoff: %d, r.yoff: %d, r.xsz: %d, r.ysz: %d\r\n", r.xoffset, r.yoffset, r.xsize, r.ysize); 
+    DEBUG("w.xoff: %d, w.yoff: %d, w.xsz: %d, w.ysz: %d\r\n", w.xoffset, w.yoffset, w.xsize, w.ysize); 
+    DEBUG("bandscount: %d, CPLCalloc size=%zu\r\n", 
+          hImg->dataBandsCount, bufsize * hImg->dataBandsCount);
+    hRawtile->data = (GByte*)CPLMalloc(bufsize * hImg->dataBandsCount * sizeof(*hRawtile->data));
 
     int panBandMap[hImg->dataBandsCount];
     fill_pband_list(hImg->dataBandsCount, panBandMap);
-    CPLErr eErr = GDALDatasetRasterIO(ds, GF_Read, 
+    CPLErr eErr = GDALDatasetRasterIO(img_ds, GF_Read, 
                                       r.xoffset, r.yoffset, r.xsize, r.ysize, hRawtile->data, 
-                                      w.xsize, w.ysize, GDT_Byte, hImg->dataBandsCount, panBandMap, 
+                                      w.xsize, w.ysize, 
+                                      GDT_Byte, hImg->dataBandsCount, panBandMap, 
                                       0, 0, 0);
     if (eErr == CE_Failure) {
         char buf[128] = "DatasetRasterIO read failed: ";
@@ -328,10 +331,10 @@ static ERL_NIF_TERM gdal_nif_copyout_rawtile(ErlNifEnv* env, int argc, const ERL
     }
 
     // read dataset alpha 
-    hRawtile->alpha = (GByte*)CPLCalloc(datasz, sizeof(*hRawtile->alpha));
+    hRawtile->alpha = (GByte*)CPLMalloc(bufsize * sizeof(*hRawtile->alpha));
     eErr = GDALRasterIO(hImg->alphaBand, GF_Read, 
-                        r.xoffset, r.yoffset, r.xsize, r.ysize, 
-                        hRawtile->alpha, w.xsize, w.ysize, 
+                        r.xoffset, r.yoffset, r.xsize, r.ysize, hRawtile->alpha, 
+                        w.xsize, w.ysize, 
                         GDT_Byte, 0, 0);
     if (eErr == CE_Failure) {
         char buf[128] = "DatasetRasterIO read failed: ";
