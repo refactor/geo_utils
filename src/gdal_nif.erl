@@ -1,6 +1,7 @@
 -module(gdal_nif).
 
 -export([get_srs_wkt_of/1,
+         is_imgfile/1,
          get_meta/1,
          create_warped_vrtimg/2,
          close_img/1]).
@@ -38,6 +39,10 @@ init() ->
                       Path
               end,
     erlang:load_nif(filename:join(PrivDir, ?MODULE), 0).
+
+-spec is_imgfile(FileName::iolist()) -> true | false.
+is_imgfile(_FileName) ->
+    ?nif_stub.
 
 -spec get_srs_wkt_of(EpspCode::non_neg_integer()) -> {ok, string()} | {error, string()}.
 get_srs_wkt_of(_EpsgCode) ->

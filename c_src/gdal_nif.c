@@ -67,9 +67,12 @@ typedef struct
 static ERL_NIF_TERM ATOM_OK;
 static ERL_NIF_TERM ATOM_ERROR;
 static ERL_NIF_TERM ATOM_NOT_OPEN;
+static ERL_NIF_TERM ATOM_TRUE;
+static ERL_NIF_TERM ATOM_FALSE;
 
 
 // Prototypes
+static ERL_NIF_TERM gdal_nif_is_imgfile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_get_srs_wkt_of(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_create_warped_vrtimg(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM gdal_nif_close_img(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -82,6 +85,7 @@ static ERL_NIF_TERM gdal_nif_get_meta(ErlNifEnv* env, int argc, const ERL_NIF_TE
 
 static ErlNifFunc nif_funcs[] =
 {
+    {"is_imgfile", 1, gdal_nif_is_imgfile},
     {"get_srs_wkt_of", 1, gdal_nif_get_srs_wkt_of},
     {"create_warped_vrtimg", 2, gdal_nif_create_warped_vrtimg},
     {"close_img", 1, gdal_nif_close_img},
@@ -141,6 +145,28 @@ static ERL_NIF_TERM gdal_nif_get_srs_wkt_of(ErlNifEnv* env, int argc,
     }
     else {
         return enif_make_badarg(env);
+    }
+}
+
+static ERL_NIF_TERM gdal_nif_is_imgfile(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifBinary filenameBin;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &filenameBin) || 
+        (filenameBin.size >= FILENAME_LEN)) {
+        return make_error_msg(env, "filename error, maybe too long");
+    }
+
+    char imgfilename[FILENAME_LEN] = "";
+    memcpy(imgfilename, filenameBin.data, filenameBin.size);
+    DEBUG("img filename: %s\r\n", imgfilename);
+
+    GDALDatasetH hDataset = GDALOpen( imgfilename, GA_ReadOnly );
+    if (hDataset == NULL) {
+        return ATOM_FALSE;
+    }
+    else {
+        GDALClose( hDataset );
+        return ATOM_TRUE;
     }
 }
 
@@ -690,6 +716,9 @@ static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     ATOM_OK = enif_make_atom(env, "ok");
     ATOM_ERROR = enif_make_atom(env, "error");
     ATOM_NOT_OPEN = enif_make_atom(env, "not_open");
+
+    ATOM_TRUE = enif_make_atom(env, "true");
+    ATOM_FALSE = enif_make_atom(env, "false");
 
     // Register all known configured GDAL drivers
     GDALAllRegister();
